@@ -62,6 +62,7 @@ class Simulator:
         # State: [position of vehs, position of request]
         state = [veh.position for veh in self.vehicles]
         state.append(self.request.position)
+        state = torch.tensor(state, dtype=torch.float32)
         return state
 
 

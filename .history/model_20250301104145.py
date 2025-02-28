@@ -83,7 +83,7 @@ class Q_Network(nn.Module):
                 next_state, reward, done = self.sim_env.step(action)
                 next_state = torch.tensor(next_state, dtype=torch.float32)
                 total_reward += reward
-                self.replay_buffer.push(state.numpy(), action, reward, next_state.numpy(), done)
+                self.replay_buffer.push(state.num, action, reward, next_state, done)
                 state = next_state
 
                 if len(self.replay_buffer) > self.batch_size:

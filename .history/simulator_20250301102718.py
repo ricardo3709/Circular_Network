@@ -1,8 +1,6 @@
 import numpy as np
 from vehicle import Vehicle
 from request import Request
-import torch
-import torch.nn as nn
 
 class Simulator:
     def __init__(self, n_vehs):
@@ -23,7 +21,7 @@ class Simulator:
         # [0,1)
         self.uniform_init_vehicles()
         # Randomly create a new request
-        self.request = Request()
+        
         return self.get_state()
 
     def step(self, action):
@@ -48,7 +46,7 @@ class Simulator:
         self.vehicles.append(Vehicle())
 
         # Randomly create a new request
-        self.request = Request()
+        self.request = np.random.rand()
 
         return self.get_state(), reward, False  # False: not done
     

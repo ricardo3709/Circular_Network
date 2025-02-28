@@ -36,10 +36,8 @@ class DQN_Target(nn.Module):
 class Q_Network(nn.Module):
     def __init__(self, batch_size, state_dim, action_dim, gamma, epsilon, 
                  epsilon_decay, epsilon_min, learning_rate, total_eps, 
-                 sim_env, total_its, replay_buffer, eval_freq, update_freq,
-                 save_freq):
+                 sim_env, total_its, replay_buffer, eval_freq):
         
-        super(Q_Network, self).__init__()
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.gamma = gamma
@@ -57,15 +55,12 @@ class Q_Network(nn.Module):
         self.tot_its = total_its
         self.replay_buffer = replay_buffer
         self.eval_freq = eval_freq
-        self.save_freq = save_freq
-        self.update_freq = update_freq
         self.log_path = 'training_log.txt'
 
 
     def train(self):
         for ep in range(int(self.total_eps)):
             state = self.sim_env.reset()
-            state = torch.tensor(state, dtype=torch.float32)
             total_reward = 0
             done = False
             it = 0
@@ -81,58 +76,45 @@ class Q_Network(nn.Module):
                         action = q_values.argmax().item()
 
                 next_state, reward, done = self.sim_env.step(action)
-                next_state = torch.tensor(next_state, dtype=torch.float32)
                 total_reward += reward
-                self.replay_buffer.push(state.numpy(), action, reward, next_state.numpy(), done)
+                self.replay_buffer.push(state, action, reward, next_state)
                 state = next_state
 
                 if len(self.replay_buffer) > self.batch_size:
                     batch = self.replay_buffer.sample(self.batch_size)
-                    states, actions, rewards, next_states, dones = zip(*batch)
+                    states, actions, rewards, next_states = zip(*batch)
 
                     states = torch.tensor(states, dtype=torch.float32)
                     actions = torch.tensor(actions, dtype=torch.int64)
                     rewards = torch.tensor(rewards, dtype=torch.float32)
                     next_states = torch.tensor(next_states, dtype=torch.float32)
-                    dones = torch.tensor(dones, dtype=torch.float32)
 
                     # current Q values
                     q_values = self.policy_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
                     # target Q values
                     next_q_values = self.target_net(next_states).max(1).values
-                    target_q_values = rewards + (1-dones)*self.gamma * next_q_values
+                    target_q_values = rewards + self.gamma * next_q_values
 
                     # loss
                     loss = self.loss(q_values, target_q_values)
 
-                    # update policy network every iteration
+                    # update
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
 
                 # it += 1
-                if it == self.tot_its:
-                    done = True
+                # if it > self.tot_its:
+                #     done = True
             
             self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
-
-            # Update the target network every update_freq episodes
-            if ep % self.update_freq == 0:
-                self.target_net.load_state_dict(self.policy_net.state_dict())
             
-            # Evaluate the model every eval_freq episodes
             if ep % self.eval_freq == 0:
                 total_reward = self.eval()
-                with open(self.log_path, 'a') as f:
-                    f.write(f'Episode: {ep}, Reward: {total_reward}\n')
-            
-            # Save the model every save_freq episodes
-            if ep % self.save_freq == 0:
-                self.save(f'Circular_DQN_{ep}')
-            
+                
+
     def eval(self):
         state = self.sim_env.reset()
-        state = torch.tensor(state, dtype=torch.float32)
         total_reward = 0
         done = False
 
@@ -142,7 +124,6 @@ class Q_Network(nn.Module):
                 q_values = self.policy_net(state)
                 action = q_values.argmax().item()
             next_state, reward, done = self.sim_env.step(action)
-            next_state = torch.tensor(next_state, dtype=torch.float32)
             total_reward += reward
             state = next_state
 

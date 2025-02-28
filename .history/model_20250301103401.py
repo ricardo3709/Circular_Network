@@ -38,7 +38,6 @@ class Q_Network(nn.Module):
                  epsilon_decay, epsilon_min, learning_rate, total_eps, 
                  sim_env, total_its, replay_buffer, eval_freq, update_freq,
                  save_freq):
-        
         super(Q_Network, self).__init__()
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -57,7 +56,6 @@ class Q_Network(nn.Module):
         self.tot_its = total_its
         self.replay_buffer = replay_buffer
         self.eval_freq = eval_freq
-        self.save_freq = save_freq
         self.update_freq = update_freq
         self.log_path = 'training_log.txt'
 
@@ -83,7 +81,7 @@ class Q_Network(nn.Module):
                 next_state, reward, done = self.sim_env.step(action)
                 next_state = torch.tensor(next_state, dtype=torch.float32)
                 total_reward += reward
-                self.replay_buffer.push(state.numpy(), action, reward, next_state.numpy(), done)
+                self.replay_buffer.push(state, action, reward, next_state, done)
                 state = next_state
 
                 if len(self.replay_buffer) > self.batch_size:
@@ -94,7 +92,6 @@ class Q_Network(nn.Module):
                     actions = torch.tensor(actions, dtype=torch.int64)
                     rewards = torch.tensor(rewards, dtype=torch.float32)
                     next_states = torch.tensor(next_states, dtype=torch.float32)
-                    dones = torch.tensor(dones, dtype=torch.float32)
 
                     # current Q values
                     q_values = self.policy_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
@@ -132,7 +129,6 @@ class Q_Network(nn.Module):
             
     def eval(self):
         state = self.sim_env.reset()
-        state = torch.tensor(state, dtype=torch.float32)
         total_reward = 0
         done = False
 
@@ -142,7 +138,6 @@ class Q_Network(nn.Module):
                 q_values = self.policy_net(state)
                 action = q_values.argmax().item()
             next_state, reward, done = self.sim_env.step(action)
-            next_state = torch.tensor(next_state, dtype=torch.float32)
             total_reward += reward
             state = next_state
 

@@ -1,8 +1,6 @@
 import numpy as np
 from vehicle import Vehicle
 from request import Request
-import torch
-import torch.nn as nn
 
 class Simulator:
     def __init__(self, n_vehs):
@@ -62,6 +60,7 @@ class Simulator:
         # State: [position of vehs, position of request]
         state = [veh.position for veh in self.vehicles]
         state.append(self.request.position)
+        state 
         return state
 
 

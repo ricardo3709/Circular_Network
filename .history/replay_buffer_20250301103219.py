@@ -6,7 +6,7 @@ class ReplayBuffer:
         self.buffer = deque(maxlen=tot_sim_steps)
 
     def push(self, state, action, reward, next_state, done):
-        self.buffer.append((state, action, reward, next_state, done))
+        self.buffer.append((state, action, reward, next_state))
 
     def sample(self, batch_size):
         return random.sample(self.buffer, batch_size)
