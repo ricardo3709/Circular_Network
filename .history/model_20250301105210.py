@@ -122,9 +122,9 @@ class Q_Network(nn.Module):
             self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
             # log the loss
-            with open(self.loss_path, 'a', newline='') as f:
+            with open(self.loss_csv_path, 'w', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow([ep, np.mean(ep_losses), total_reward, self.epsilon])
+                writer.writerow(['Episode', 'Avg_Loss', 'Reward', 'Epsilon'])
 
             # Update the target network every update_freq episodes
             if ep % self.update_freq == 0:

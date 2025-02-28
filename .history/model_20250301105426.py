@@ -123,8 +123,6 @@ class Q_Network(nn.Module):
 
             # log the loss
             with open(self.loss_path, 'a', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([ep, np.mean(ep_losses), total_reward, self.epsilon])
 
             # Update the target network every update_freq episodes
             if ep % self.update_freq == 0:

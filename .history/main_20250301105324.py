@@ -13,7 +13,6 @@ def main():
     # clear the content of logs
     with open('logs/training_log.txt', 'w') as f:
         f.write('')
-
     # delete the content of loss_log.csv
     with open('logs/loss_log.csv', 'w', newline='') as f:
         writer = csv.writer(f)
@@ -36,8 +35,8 @@ def main():
     update_freq = 2 # Update the target network every 2 episodes
     save_freq = 1000 # Save the model every 1000 episodes
 
-    replay_buffer = ReplayBuffer(total_eps * total_its / 10)
-    # replay_buffer = ReplayBuffer(1000)
+    # replay_buffer = ReplayBuffer(total_eps * total_its / 10)
+    replay_buffer = ReplayBuffer(1000)
 
     model = Q_Network(batch_size, state_dim, action_dim, gamma, epsilon, epsilon_decay, 
                       epsilon_min, learning_rate, total_eps, sim_env, total_its, 

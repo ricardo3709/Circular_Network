@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
 
-import csv
+import 
 
 class DQN(nn.Module):
     def __init__(self, state_dim, action_dim):
@@ -122,9 +122,8 @@ class Q_Network(nn.Module):
             self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
             # log the loss
-            with open(self.loss_path, 'a', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([ep, np.mean(ep_losses), total_reward, self.epsilon])
+            with open(self.loss_path, 'a') as f:
+                f.write(f'{ep}, {np.mean(ep_losses)}\n')
 
             # Update the target network every update_freq episodes
             if ep % self.update_freq == 0:

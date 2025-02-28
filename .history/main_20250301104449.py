@@ -1,7 +1,6 @@
 import numpy as np
 from simulator import Simulator
 from replay_buffer import ReplayBuffer
-import csv
 from model import Q_Network
 
 def greedy_policy(state):
@@ -10,15 +9,9 @@ def greedy_policy(state):
     return np.argmin(state[:-1])
 
 def main():
-    # clear the content of logs
-    with open('logs/training_log.txt', 'w') as f:
+    # clear the content in tarin_log.txt
+    with open('training_log.txt', 'w') as f:
         f.write('')
-
-    # delete the content of loss_log.csv
-    with open('logs/loss_log.csv', 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(['Episode', 'Avg_Loss', 'Reward', 'Epsilon'])
-
     # HyperParameter for DQN
     n_vehs = 10
     batch_size = 64
@@ -36,8 +29,8 @@ def main():
     update_freq = 2 # Update the target network every 2 episodes
     save_freq = 1000 # Save the model every 1000 episodes
 
-    replay_buffer = ReplayBuffer(total_eps * total_its / 10)
-    # replay_buffer = ReplayBuffer(1000)
+    # replay_buffer = ReplayBuffer(total_eps * total_its / 10)
+    replay_buffer = ReplayBuffer(1000)
 
     model = Q_Network(batch_size, state_dim, action_dim, gamma, epsilon, epsilon_decay, 
                       epsilon_min, learning_rate, total_eps, sim_env, total_its, 
