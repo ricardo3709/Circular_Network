@@ -77,7 +77,7 @@ class Simulator:
     # Positions of vehicles sorted by distance to the request
     sorted_positions = [positions[i] for i in sorted_indices]
     
-    # Combine all the information to form the state
+    # State: density + [mean_pos, std_pos] + sorted_positions + [request_position]
     state = density + [mean_pos, std_pos] + sorted_positions + [self.request.position]
     
     return state

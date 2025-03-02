@@ -70,14 +70,14 @@ class Simulator:
     mean_pos = np.mean(positions)
     std_pos = np.std(positions)
     
-    # Distance between vehicles and request
+    # 计算距离
     distances = [self.get_distance(veh, self.request) for veh in self.vehicles]
     sorted_indices = np.argsort(distances)
     
-    # Positions of vehicles sorted by distance to the request
+    # 按距离排序的司机位置
     sorted_positions = [positions[i] for i in sorted_indices]
     
-    # Combine all the information to form the state
+    # 组合状态
     state = density + [mean_pos, std_pos] + sorted_positions + [self.request.position]
     
     return state
