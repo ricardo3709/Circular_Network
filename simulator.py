@@ -58,29 +58,29 @@ class Simulator:
         return distance
 
     def get_state(self):
-    # Vehicle density
-    sectors = 4
-    density = [0] * sectors
-    for veh in self.vehicles:
-        sector_idx = int(veh.position * sectors)
-        density[sector_idx] += 1
-    
-    # Mean and std of vehicle positions
-    positions = [veh.position for veh in self.vehicles]
-    mean_pos = np.mean(positions)
-    std_pos = np.std(positions)
-    
-    # Distance between vehicles and request
-    distances = [self.get_distance(veh, self.request) for veh in self.vehicles]
-    sorted_indices = np.argsort(distances)
-    
-    # Positions of vehicles sorted by distance to the request
-    sorted_positions = [positions[i] for i in sorted_indices]
-    
-    # Combine all the information to form the state
-    state = density + [mean_pos, std_pos] + sorted_positions + [self.request.position]
-    
-    return state
+        # Vehicle density
+        sectors = 4
+        density = [0] * sectors
+        for veh in self.vehicles:
+            sector_idx = int(veh.position * sectors)
+            density[sector_idx] += 1
+        
+        # Mean and std of vehicle positions
+        positions = [veh.position for veh in self.vehicles]
+        mean_pos = np.mean(positions)
+        std_pos = np.std(positions)
+        
+        # Distance between vehicles and request
+        distances = [self.get_distance(veh, self.request) for veh in self.vehicles]
+        sorted_indices = np.argsort(distances)
+        
+        # Positions of vehicles sorted by distance to the request
+        sorted_positions = [positions[i] for i in sorted_indices]
+        
+        # Combine all the information to form the state
+        state = density + [mean_pos, std_pos] + sorted_positions + [self.request.position]
+        
+        return state
 
     def get_state_simple(self):
         # Return the current state of the simulator
