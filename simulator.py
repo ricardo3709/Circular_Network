@@ -5,8 +5,9 @@ import torch
 import torch.nn as nn
 
 class Simulator:
-    def __init__(self, n_vehs):
+    def __init__(self, n_vehs, sectors):
         self.n_vehs = n_vehs  # Number of Vehs
+        self.n_sectors = sectors  # Number of sectors
         self.vehicles = [Vehicle() for _ in range(n_vehs)]  # Initialize vehicles
         self.request = Request()
         self.reset()
@@ -59,7 +60,7 @@ class Simulator:
 
     def get_state(self):
         # Vehicle density
-        sectors = 4
+        sectors = self.n_sectors
         density = [0] * sectors
         for veh in self.vehicles:
             sector_idx = int(veh.position * sectors)

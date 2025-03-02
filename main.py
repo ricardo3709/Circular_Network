@@ -20,9 +20,10 @@ def main():
         writer.writerow(['Episode', 'Avg_Loss', 'Reward', 'Epsilon'])
 
     # HyperParameter for DQN
+    sectors = 4 # Number of sectors of ring
     n_vehs = 10
     batch_size = 64
-    state_dim = n_vehs + 1
+    state_dim = sectors + n_vehs + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
     action_dim = 2 # 0 or 1
     gamma = 0.995
     epsilon = 1.0
@@ -30,13 +31,13 @@ def main():
     epsilon_min = 0.01
     learning_rate = 1e-3
     total_eps = 1e5 # Total simulation episodes
-    sim_env = Simulator(n_vehs)
+    sim_env = Simulator(n_vehs, sectors)
     total_its = 1000 # Total iterations per episode
     eval_freq = 100 # Evaluate the model every 100 episodes
     update_freq = 2 # Update the target network every 2 episodes
     save_freq = 1000 # Save the model every 1000 episodes
 
-    replay_buffer = ReplayBuffer(total_eps * total_its / 4)
+    replay_buffer = ReplayBuffer(int(total_eps * total_its / 4))
     # replay_buffer = ReplayBuffer(1000)
 
     model = Q_Network(batch_size, state_dim, action_dim, gamma, epsilon, epsilon_decay, 

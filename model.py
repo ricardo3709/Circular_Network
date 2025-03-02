@@ -100,7 +100,7 @@ class Q_Network(nn.Module):
                     next_states = torch.tensor(next_states, dtype=torch.float32)
                     dones = torch.tensor(dones, dtype=torch.float32)
 
-                    # current Q values
+                    # current Q valuesf
                     q_values = self.policy_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
                     # target Q values
                     next_q_values = self.target_net(next_states).max(1).values
