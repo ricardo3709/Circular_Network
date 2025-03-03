@@ -140,17 +140,20 @@ class Q_Network(nn.Module):
             if ep % self.save_freq == 0:
                 self.save(f'Circular_DQN_{ep}')
             
-    def eval(self):
+    def eval(self, policy=None):
         state = self.sim_env.reset()
         state = torch.tensor(state, dtype=torch.float32)
         total_reward = 0
         done = False
 
-        print(f'Evaluation')
-        for it in tqdm(range(self.tot_its)):
-            with torch.no_grad():
-                q_values = self.policy_net(state)
-                action = q_values.argmax().item()
+        # print(f'Evaluation')
+        for it in range(self.tot_its):
+            if policy is not None:
+                action = policy(state)
+            else:
+                with torch.no_grad():
+                    q_values = self.policy_net(state)
+                    action = q_values.argmax().item()
             next_state, reward, done = self.sim_env.step(action)
             next_state = torch.tensor(next_state, dtype=torch.float32)
             total_reward += reward
