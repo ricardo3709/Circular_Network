@@ -29,9 +29,9 @@ def main():
     gamma = 0.995
     epsilon = 1.0
     epsilon_decay = 0.999
-    epsilon_min = 0.01
+    epsilon_min = 0.10
     learning_rate = 1e-3
-    total_eps = 1e5 # Total simulation episodes
+    total_eps = 10000 # Total simulation episodes
     sim_env = Simulator(n_vehs, sectors, n_vehs_in_state)
     total_its = 1000 # Total iterations per episode
     eval_freq = 100 # Evaluate the model every 100 episodes

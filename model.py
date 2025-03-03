@@ -9,10 +9,10 @@ import csv
 class DQN(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 32)
-        self.fc2 = nn.Linear(32, 32)
-        self.fc3 = nn.Linear(32, 16)
-        self.fc4 = nn.Linear(16, action_dim)
+        self.fc1 = nn.Linear(state_dim, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 32)
+        self.fc4 = nn.Linear(32, action_dim)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -24,10 +24,10 @@ class DQN(nn.Module):
 class DQN_Target(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(DQN_Target, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 32)
-        self.fc2 = nn.Linear(32, 32)
-        self.fc3 = nn.Linear(32, 16)
-        self.fc4 = nn.Linear(16, action_dim)
+        self.fc1 = nn.Linear(state_dim, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 32)
+        self.fc4 = nn.Linear(32, action_dim)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -137,14 +137,14 @@ class Q_Network(nn.Module):
             
             # Evaluate the model every eval_freq episodes
             if ep % self.eval_freq == 0:
-                total_reward = self.eval()
+                total_reward, percentage_non_greedy = self.eval()
                 with open(self.log_path, 'a') as f:
-                    f.write(f'Episode: {ep}, Reward: {total_reward}\n')
+                    f.write(f'Episode: {ep}, Reward: {total_reward}, Non-Greedy:{percentage_non_greedy:.2%}\n')
             
             # Save the model every save_freq episodes
             if ep % self.save_freq == 0:
                 self.save(f'Circular_DQN_{ep}')
-                
+
     def eval(self):
         state = self.sim_env.reset()
         state = torch.tensor(state, dtype=torch.float32)
@@ -157,13 +157,15 @@ class Q_Network(nn.Module):
             with torch.no_grad():
                 q_values = self.policy_net(state)
                 action = q_values.argmax().item()
+                self.actions[it] = action
                 
             next_state, reward, done = self.sim_env.step(action)
             next_state = torch.tensor(next_state, dtype=torch.float32)
             total_reward += reward
             state = next_state
         
-        return total_reward          
+        percentage_of_non_greedy_actions = np.sum(self.actions) / len(self.actions)
+        return total_reward, percentage_of_non_greedy_actions
     
     def test(self, policy=None):
         state = self.sim_env.reset()

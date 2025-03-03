@@ -41,6 +41,13 @@ class Simulator:
         # Get the 2 closest vehicles
         target_vehs = sorted(self.vehicles, key=lambda x: x.distance)[:2]
 
+        # Calculate Uniform Distribution Reward (Before)
+        positions_before = [veh.position for veh in self.vehicles]
+        gaps_before = [(positions_before[(i+1)%len(positions_before)] - pos) % 1.0 
+                  for i, pos in enumerate(positions_before)]
+        max_gap_before = max(gaps_before)
+        std_gap_before = np.std(gaps_before)
+
         # get reward based on the action
         reward = -target_vehs[action].distance
 
@@ -48,6 +55,27 @@ class Simulator:
         # Remove selected veh and random initialize a new veh
         self.vehicles.remove(target_vehs[action])
         self.vehicles.append(Vehicle())
+
+        # Calculate Uniform Distribution Reward (After)
+        positions_after = sorted([veh.position for veh in self.vehicles])
+        gaps_after = [(positions_after[(i+1)%len(positions_after)] - pos) % 1.0 
+                    for i, pos in enumerate(positions_after)]
+        max_gap_after = max(gaps_after)
+        std_gap_after = np.std(gaps_after)
+
+        # Calculate the reward based on the gap
+        gap_change = max_gap_before - max_gap_after
+        std_change = std_gap_before - std_gap_after
+
+        gap_weight = 0.1
+        std_weight = 0.05
+
+        uniformly_reward = (gap_weight * gap_change + std_weight * std_change)*0.5
+
+        # print(f"Distance Reward: {reward}")
+        # print(f"Uniformly Reward: {uniformly_reward}")
+
+        reward += uniformly_reward 
 
         # Randomly create a new request
         self.request = Request()
