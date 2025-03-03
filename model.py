@@ -1,4 +1,5 @@
 import torch
+import pickle
 import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
@@ -63,6 +64,10 @@ class Q_Network(nn.Module):
         self.update_freq = update_freq
         self.log_path = 'logs/training_log.txt'
         self.loss_path = 'logs/loss_log.csv'
+        self.action_state_tuple_list = []
+
+        self.states = np.zeros((self.tot_its, state_dim))
+        self.actions = np.zeros(self.tot_its)
 
 
     def train(self):
@@ -139,8 +144,28 @@ class Q_Network(nn.Module):
             # Save the model every save_freq episodes
             if ep % self.save_freq == 0:
                 self.save(f'Circular_DQN_{ep}')
-            
-    def eval(self, policy=None):
+                
+    def eval(self):
+        state = self.sim_env.reset()
+        state = torch.tensor(state, dtype=torch.float32)
+        total_reward = 0
+        done = False
+
+        print(f'Evaluation')
+        for it in tqdm(range(self.tot_its)):
+        
+            with torch.no_grad():
+                q_values = self.policy_net(state)
+                action = q_values.argmax().item()
+                
+            next_state, reward, done = self.sim_env.step(action)
+            next_state = torch.tensor(next_state, dtype=torch.float32)
+            total_reward += reward
+            state = next_state
+        
+        return total_reward          
+    
+    def test(self, policy=None):
         state = self.sim_env.reset()
         state = torch.tensor(state, dtype=torch.float32)
         total_reward = 0
@@ -154,10 +179,19 @@ class Q_Network(nn.Module):
                 with torch.no_grad():
                     q_values = self.policy_net(state)
                     action = q_values.argmax().item()
+                    # self.action_state_tuple_list.append((state, action))
+            self.states[it] = state.detach().cpu().numpy()
+            self.actions[it] = action
             next_state, reward, done = self.sim_env.step(action)
             next_state = torch.tensor(next_state, dtype=torch.float32)
             total_reward += reward
             state = next_state
+        
+        # use pickle to save the action_state_tuple_list
+        with open('logs/states.pkl', 'wb') as f:
+            pickle.dump(self.states, f)
+        with open('logs/actions.pkl', 'wb') as f:
+            pickle.dump(self.actions, f)
 
         return total_reward
     

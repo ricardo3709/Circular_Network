@@ -22,8 +22,9 @@ def main():
     # HyperParameter for DQN
     sectors = 4 # Number of sectors of ring
     n_vehs = 10
+    n_vehs_in_state = n_vehs
     batch_size = 64
-    state_dim = sectors + n_vehs + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
+    state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
     action_dim = 2 # 0 or 1
     gamma = 0.995
     epsilon = 1.0
@@ -31,7 +32,7 @@ def main():
     epsilon_min = 0.01
     learning_rate = 1e-3
     total_eps = 1e5 # Total simulation episodes
-    sim_env = Simulator(n_vehs, sectors)
+    sim_env = Simulator(n_vehs, sectors, n_vehs_in_state)
     total_its = 1000 # Total iterations per episode
     eval_freq = 100 # Evaluate the model every 100 episodes
     update_freq = 2 # Update the target network every 2 episodes

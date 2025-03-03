@@ -5,11 +5,12 @@ import torch
 import torch.nn as nn
 
 class Simulator:
-    def __init__(self, n_vehs, sectors):
+    def __init__(self, n_vehs, sectors, n_vehs_in_state):
         self.n_vehs = n_vehs  # Number of Vehs
         self.n_sectors = sectors  # Number of sectors
         self.vehicles = [Vehicle() for _ in range(n_vehs)]  # Initialize vehicles
         self.request = Request()
+        self.n_vehs_in_state = n_vehs_in_state
         self.reset()
 
     def uniform_init_vehicles(self):
@@ -66,6 +67,8 @@ class Simulator:
             sector_idx = int(veh.position * sectors)
             density[sector_idx] += 1
         
+        density = [x / self.n_vehs for x in density] # Normalize the density
+        
         # Mean and std of vehicle positions
         positions = [veh.position for veh in self.vehicles]
         mean_pos = np.mean(positions)
@@ -73,13 +76,15 @@ class Simulator:
         
         # Distance between vehicles and request
         distances = [self.get_distance(veh, self.request) for veh in self.vehicles]
-        sorted_indices = np.argsort(distances)
+        distances.sort()
+        # distances = np.array(distances).sort() # Get the 5 closest vehicles
+        # sorted_indices = np.argsort(distances)
         
         # Positions of vehicles sorted by distance to the request
-        sorted_positions = [positions[i] for i in sorted_indices]
+        # sorted_positions = [positions[i] for i in sorted_indices]
         
         # Combine all the information to form the state
-        state = density + [mean_pos, std_pos] + sorted_positions + [self.request.position]
+        state = density + [mean_pos, std_pos] + distances[:self.n_vehs_in_state] + [self.request.position]
         
         return state
 
