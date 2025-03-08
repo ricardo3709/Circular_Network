@@ -70,7 +70,7 @@ class Simulator:
         gap_weight = 0.1
         std_weight = 0.05
 
-        uniformly_reward = (gap_weight * gap_change + std_weight * std_change)*0.5
+        uniformly_reward = (gap_weight * gap_change + std_weight * std_change)*0.3
 
         # print(f"Distance Reward: {reward}")
         # print(f"Uniformly Reward: {uniformly_reward}")

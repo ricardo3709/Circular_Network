@@ -150,28 +150,32 @@ class Q_Network(nn.Module):
         state = torch.tensor(state, dtype=torch.float32)
         total_reward = 0
         done = False
+        action_sum = 0
 
         print(f'Evaluation')
-        for it in tqdm(range(self.tot_its)):
-        
-            with torch.no_grad():
-                q_values = self.policy_net(state)
-                action = q_values.argmax().item()
-                self.actions[it] = action
-                
-            next_state, reward, done = self.sim_env.step(action)
-            next_state = torch.tensor(next_state, dtype=torch.float32)
-            total_reward += reward
-            state = next_state
-        
-        percentage_of_non_greedy_actions = np.sum(self.actions) / len(self.actions)
-        return total_reward, percentage_of_non_greedy_actions
+        for _ in tqdm(range(10)):
+            for it in range(self.tot_its):
+            
+                with torch.no_grad():
+                    q_values = self.policy_net(state)
+                    action = q_values.argmax().item()
+                    action_sum += action
+                    
+                next_state, reward, done = self.sim_env.step(action)
+                next_state = torch.tensor(next_state, dtype=torch.float32)
+                total_reward += reward
+                state = next_state
+            
+        percentage_of_non_greedy_actions = action_sum / (10*self.tot_its)
+        avg_reward = total_reward / 10
+        return avg_reward, percentage_of_non_greedy_actions
     
     def test(self, policy=None):
         state = self.sim_env.reset()
         state = torch.tensor(state, dtype=torch.float32)
         total_reward = 0
         done = False
+        total_action = 0
 
         # print(f'Evaluation')
         for it in range(self.tot_its):
@@ -181,21 +185,28 @@ class Q_Network(nn.Module):
                 with torch.no_grad():
                     q_values = self.policy_net(state)
                     action = q_values.argmax().item()
+                    total_action += action
                     # self.action_state_tuple_list.append((state, action))
-            self.states[it] = state.detach().cpu().numpy()
-            self.actions[it] = action
-            next_state, reward, done = self.sim_env.step(action)
+            # self.states[it] = state.detach().cpu().numpy()
+            # self.actions[it] = action
+            next_state, reward, done = self.sim_env.step(action) #here the reward is combined reward
             next_state = torch.tensor(next_state, dtype=torch.float32)
+            # calculate -distance reward
+            # extract the distance from the state
+            distances = torch.sort(state[self.sim_env.n_sectors:self.sim_env.n_vehs_in_state])
+            reward = float(-distances[0][action])
             total_reward += reward
             state = next_state
         
         # use pickle to save the action_state_tuple_list
-        with open('logs/states.pkl', 'wb') as f:
-            pickle.dump(self.states, f)
-        with open('logs/actions.pkl', 'wb') as f:
-            pickle.dump(self.actions, f)
+        # with open('logs/states.pkl', 'wb') as f:
+        #     pickle.dump(self.states, f)
+        # with open('logs/actions.pkl', 'wb') as f:
+        #     pickle.dump(self.actions, f)
 
-        return total_reward
+        percentage_of_non_greedy_actions = total_action / self.tot_its
+
+        return total_reward, percentage_of_non_greedy_actions
     
     def save(self, file_name):
         torch.save(self.policy_net.state_dict(), 'saved_models/' + file_name+'_policy')
