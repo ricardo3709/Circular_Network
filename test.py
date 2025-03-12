@@ -18,7 +18,7 @@ def test():
     n_vehs = 10
     n_vehs_in_state = n_vehs
     batch_size = 64
-    state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
+    state_dim = n_vehs+1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
     action_dim = 2 # 0 or 1
     gamma = 0.995
     epsilon = 1.0
@@ -38,7 +38,7 @@ def test():
                       replay_buffer, eval_freq, update_freq, save_freq)
     
     # load the model
-    epoch = 9600
+    epoch = 1300
     model_name = f'Circular_DQN_{epoch}'
     model.load(model_name)
 
@@ -47,7 +47,7 @@ def test():
 
     percentage_non_greedy_actions_list = []
 
-    tot_test_eps = 200
+    tot_test_eps = 1000
 
     # Test the model
     for it in tqdm(range(tot_test_eps)): # test 1000 times, get the average reward

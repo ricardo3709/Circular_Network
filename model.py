@@ -139,7 +139,7 @@ class Q_Network(nn.Module):
             if ep % self.eval_freq == 0:
                 total_reward, percentage_non_greedy = self.eval()
                 with open(self.log_path, 'a') as f:
-                    f.write(f'Episode: {ep}, Reward: {total_reward}, Non-Greedy:{percentage_non_greedy:.2%}\n')
+                    f.write(f'Episode: {ep}, Reward: {total_reward}, Non-Greedy:{percentage_non_greedy:.2%}, Loss:{np.mean(ep_losses)}\n')
             
             # Save the model every save_freq episodes
             if ep % self.save_freq == 0:

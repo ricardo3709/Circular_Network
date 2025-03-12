@@ -1,1 +1,2 @@
-Episode: 0, Reward: -324.1323000000024, Non-Greedy:3.31%
+Episode: 0, Reward: nan, Non-Greedy:0.00%, Loss:nan
+Episode: 100, Reward: nan, Non-Greedy:0.00%, Loss:nan

@@ -11,6 +11,8 @@ class Simulator:
         self.vehicles = [Vehicle() for _ in range(n_vehs)]  # Initialize vehicles
         self.request = Request()
         self.n_vehs_in_state = n_vehs_in_state
+        self.gaps = np.zeros(self.n_vehs)
+        self.prev_gaps = np.zeros(self.n_vehs)
         self.reset()
 
     def uniform_init_vehicles(self):
@@ -26,14 +28,14 @@ class Simulator:
         self.uniform_init_vehicles()
         # Randomly create a new request
         self.request = Request()
-        return self.get_state()
+        # return self.get_state()
+        return self.get_state_discrete()
 
     def step(self, action):
         # action: the closest veh or second closest veh
         # action: 0 or 1
         # action: 0 -> closest veh
         # action: 1 -> second closest veh
-        # reward: -distance
 
         # Calculate the distance between the vehicle and the request
         for veh in self.vehicles:
@@ -41,51 +43,40 @@ class Simulator:
         # Get the 2 closest vehicles
         target_vehs = sorted(self.vehicles, key=lambda x: x.distance)[:2]
 
-        # # Calculate Uniform Distribution Reward (Before)
-        # positions_before = [veh.position for veh in self.vehicles]
-        # gaps_before = [(positions_before[(i+1)%len(positions_before)] - pos) % 1.0 
-        #           for i, pos in enumerate(positions_before)]
-        # max_gap_before = max(gaps_before)
-        # std_gap_before = np.std(gaps_before)
-
         # get reward based on the action
-        reward = -target_vehs[action].distance
+        # reward = -target_vehs[action].distance
+        reward = self.get_reward(action)
 
         # Update States
         # Remove selected veh and random initialize a new veh
         self.vehicles.remove(target_vehs[action])
         self.vehicles.append(Vehicle())
 
-        # # Calculate Uniform Distribution Reward (After)
-        # positions_after = sorted([veh.position for veh in self.vehicles])
-        # gaps_after = [(positions_after[(i+1)%len(positions_after)] - pos) % 1.0 
-        #             for i, pos in enumerate(positions_after)]
-        # max_gap_after = max(gaps_after)
-        # std_gap_after = np.std(gaps_after)
-
-        # # Calculate the reward based on the gap
-        # gap_change = max_gap_before - max_gap_after
-        # std_change = std_gap_before - std_gap_after
-
-        # gap_weight = 0.1
-        # std_weight = 0.05
-
-        # uniformly_reward = (gap_weight * gap_change + std_weight * std_change)*0.3
-
-        # print(f"Distance Reward: {reward}")
-        # print(f"Uniformly Reward: {uniformly_reward}")
-
-        # reward += uniformly_reward 
-
         # Randomly create a new request
         self.request = Request()
 
-        return self.get_state(), reward, False  # False: not done
+        # return self.get_state(), reward, False  # False: not done
+        return self.get_state_discrete(), reward, False
     
     def get_distance(self, veh, request):
         # Calculate the distance between the vehicle and the request
         distance = min(abs(veh.position - request.position), 1 - abs(veh.position - request.position))
         return distance
+    
+    def get_reward(self, action):
+        # 基础运输效率奖励（短期激励）
+        base_reward = 1 / (self.vehicles[action].distance + 1e-6)
+        
+        # 长期系统平衡奖励（新增）
+        gap_ratios = self.gaps / np.mean(self.gaps)
+        balance_reward = np.exp(-np.std(gap_ratios))  # 均匀分布奖励
+        
+        # 探索引导奖励（新增）
+        explore_bonus = 0.5 * (1 - self.prev_gaps[action]/np.max(self.prev_gaps))
+        
+        # 组合奖励（动态权重）
+        return (0.6 * base_reward + 0.3 * balance_reward + 0.1 * explore_bonus)
+
 
     def get_state(self):
         # compute the interval of vehicles 
@@ -98,6 +89,41 @@ class Simulator:
         gaps.append(1 - positions[-1] + positions[0])
         state = gaps + [self.request.position]
         return state
+    
+    def get_state_discrete(self):
+        # 将原始位置转换为间隔表示
+        positions = [v.position for v in self.vehicles]
+        sorted_pos = np.sort(positions)
+        
+        # 计算环形间隔（单位化到0~1）
+        gaps = np.diff(sorted_pos, append=1.0 + sorted_pos[0])  # 1.0为环形总长度
+        gaps[gaps < 0] += 1.0  # 处理环形边界
+        
+        # 添加动态特征（间隔变化率）
+        if not hasattr(self, 'prev_gaps'):
+            self.prev_gaps = np.zeros_like(gaps)
+        gap_velocity = (gaps - self.prev_gaps) / 0.1  # 假设时间步长为0.1
+        self.prev_gaps = gaps.copy()
+        
+        # 离散化处理（按论文方法）
+        min_gap_size = 0.05  # 最小间隔尺寸参数
+        gap_bins = int(1.0 // min_gap_size)
+        discretized = np.histogram(
+            gaps, 
+            bins=gap_bins,
+            range=(0, 1.0)
+        )[0].astype(np.float32)
+        
+        # 添加请求位置特征
+        request_feature = np.zeros(gap_bins, dtype=np.float32)
+        request_bin = int(self.request.position // min_gap_size)
+        request_feature[request_bin % gap_bins] = 1.0
+        
+        return np.concatenate([
+            discretized / len(self.vehicles),  # 归一化
+            gap_velocity,                      # 动态特征
+            request_feature                    # 请求位置one-hot
+        ])
 
     # def get_state(self):
     #     # Vehicle density
