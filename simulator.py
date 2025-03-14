@@ -64,18 +64,26 @@ class Simulator:
         return distance
     
     def get_reward(self, action):
-        # 基础运输效率奖励（短期激励）
-        base_reward = 1 / (self.vehicles[action].distance + 1e-6)
+        # just base reward
+        veh_positions = [veh.position for veh in self.vehicles]
+        veh_positions.sort()
+
+        reward = -veh_positions[action]
         
-        # 长期系统平衡奖励（新增）
-        gap_ratios = self.gaps / np.mean(self.gaps)
-        balance_reward = np.exp(-np.std(gap_ratios))  # 均匀分布奖励
+        return reward
+
+        # # 基础运输效率奖励（短期激励）
+        # base_reward = 1 / (self.vehicles[action].distance + 1e-6)
         
-        # 探索引导奖励（新增）
-        explore_bonus = 0.5 * (1 - self.prev_gaps[action]/np.max(self.prev_gaps))
+        # # 长期系统平衡奖励（新增）
+        # gap_ratios = self.gaps / np.mean(self.gaps)
+        # balance_reward = np.exp(-np.std(gap_ratios))  # 均匀分布奖励
         
-        # 组合奖励（动态权重）
-        return (0.6 * base_reward + 0.3 * balance_reward + 0.1 * explore_bonus)
+        # # 探索引导奖励（新增）
+        # explore_bonus = 0.5 * (1 - self.prev_gaps[action]/np.max(self.prev_gaps))
+        
+        # # 组合奖励（动态权重）
+        # return (0.6 * base_reward + 0.3 * balance_reward + 0.1 * explore_bonus)
 
 
     def get_state(self):
@@ -94,36 +102,24 @@ class Simulator:
         # 将原始位置转换为间隔表示
         positions = [v.position for v in self.vehicles]
         sorted_pos = np.sort(positions)
+
+        gaps = []
+
+        for i in range(len(positions)-1):
+            gap = sorted_pos[i+1] - sorted_pos[i]
+            gaps.append(gap)
+        # get last gap
+        gaps.append(1 - sorted_pos[-1] + sorted_pos[0])
+
+        # calculate the variance of gaps
+        gaps_variance = np.var(gaps)
+
+        gaps.append(gaps_variance)
+
+        state = gaps
         
-        # 计算环形间隔（单位化到0~1）
-        gaps = np.diff(sorted_pos, append=1.0 + sorted_pos[0])  # 1.0为环形总长度
-        gaps[gaps < 0] += 1.0  # 处理环形边界
-        
-        # 添加动态特征（间隔变化率）
-        if not hasattr(self, 'prev_gaps'):
-            self.prev_gaps = np.zeros_like(gaps)
-        gap_velocity = (gaps - self.prev_gaps) / 0.1  # 假设时间步长为0.1
-        self.prev_gaps = gaps.copy()
-        
-        # 离散化处理（按论文方法）
-        min_gap_size = 0.05  # 最小间隔尺寸参数
-        gap_bins = int(1.0 // min_gap_size)
-        discretized = np.histogram(
-            gaps, 
-            bins=gap_bins,
-            range=(0, 1.0)
-        )[0].astype(np.float32)
-        
-        # 添加请求位置特征
-        request_feature = np.zeros(gap_bins, dtype=np.float32)
-        request_bin = int(self.request.position // min_gap_size)
-        request_feature[request_bin % gap_bins] = 1.0
-        
-        return np.concatenate([
-            discretized / len(self.vehicles),  # 归一化
-            gap_velocity,                      # 动态特征
-            request_feature                    # 请求位置one-hot
-        ])
+        return state
+       
 
     # def get_state(self):
     #     # Vehicle density

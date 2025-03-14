@@ -26,7 +26,7 @@ def main():
     n_vehs_in_state = n_vehs
     batch_size = 64
     # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
-    state_dim = n_vehs+1 # 10 vehicles + request position, interval state
+    state_dim = n_vehs+1 # 10 vehicels(10 gaps) + variance of gaps
     action_dim = 2 # 0 or 1
     gamma = 0.999
     epsilon = 1.0
@@ -44,7 +44,6 @@ def main():
     # replay_buffer = ReplayBuffer(1000)
 
     # DQN Model
-    state_dim = 48
     model = Q_Network(batch_size, state_dim, action_dim, gamma, epsilon, epsilon_decay, 
                       epsilon_min, learning_rate, total_eps, sim_env, total_its, 
                       replay_buffer, eval_freq, update_freq, save_freq)
