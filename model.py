@@ -9,31 +9,39 @@ import csv
 class DQN(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 128)
-        self.fc2 = nn.Linear(128, 64)
-        self.fc3 = nn.Linear(64, 32)
-        self.fc4 = nn.Linear(32, action_dim)
+        self.fc1 = nn.Linear(state_dim, 32)
+        self.fc2 = nn.Linear(32, 32)
+        self.fc3 = nn.Linear(32, 32)
+        self.fc4 = nn.Linear(32, 32)
+        self.fc5 = nn.Linear(32, 16)
+        self.fc6 = nn.Linear(16, action_dim)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         x = torch.relu(self.fc3(x))
-        x = self.fc4(x) # Q values for each action (2)
+        x = torch.relu(self.fc4(x))
+        x = torch.relu(self.fc5(x))
+        x = self.fc6(x)
         return x
     
 class DQN_Target(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(DQN_Target, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 128)
-        self.fc2 = nn.Linear(128, 64)
-        self.fc3 = nn.Linear(64, 32)
-        self.fc4 = nn.Linear(32, action_dim)
-
+        self.fc1 = nn.Linear(state_dim, 32)
+        self.fc2 = nn.Linear(32, 32)
+        self.fc3 = nn.Linear(32, 32)
+        self.fc4 = nn.Linear(32, 32)
+        self.fc5 = nn.Linear(32, 16)
+        self.fc6 = nn.Linear(16, action_dim)
+        
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         x = torch.relu(self.fc3(x))
-        x = self.fc4(x)
+        x = torch.relu(self.fc4(x))
+        x = torch.relu(self.fc5(x))
+        x = self.fc6(x)
         return x
 
 class Q_Network(nn.Module):
@@ -69,6 +77,22 @@ class Q_Network(nn.Module):
         self.states = np.zeros((self.tot_its, state_dim))
         self.actions = np.zeros(self.tot_its)
 
+        self.weight_init()
+
+    def weight_init(self):
+        """
+        Initialize the weights of the policy and target networks using Xavier initialization
+        to prevent initial bias towards specific actions.
+        """
+        for module in self.policy_net.modules():
+            if isinstance(module, nn.Linear):
+                # Xavier/Glorot initialization for weights
+                nn.init.xavier_uniform_(module.weight)
+                # Initialize biases to small values close to zero
+                nn.init.constant_(module.bias, 0.01)
+        
+        # Copy the initialized weights to the target network
+        self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def train(self):
         for ep in range(int(self.total_eps)):
@@ -153,7 +177,7 @@ class Q_Network(nn.Module):
         action_sum = 0
 
         print(f'Evaluation')
-        for _ in tqdm(range(10)):
+        for _ in tqdm(range(100)):
             for it in range(self.tot_its):
             
                 with torch.no_grad():
@@ -166,18 +190,21 @@ class Q_Network(nn.Module):
                 total_reward += reward
                 state = next_state
             
-        percentage_of_non_greedy_actions = action_sum / (10*self.tot_its)
-        avg_reward = total_reward / 10
+        percentage_of_non_greedy_actions = action_sum / (100*self.tot_its)
+        avg_reward = total_reward / 100
         return avg_reward, percentage_of_non_greedy_actions
     
-    def test(self, policy=None):
+    def test(self, req_list, policy=None):
+        # set random seed manually
+        np.random.seed(0)
+        torch.manual_seed(0)
+
         state = self.sim_env.reset()
         state = torch.tensor(state, dtype=torch.float32)
         total_reward = 0
         done = False
         total_action = 0
 
-        # print(f'Evaluation')
         for it in range(self.tot_its):
             if policy is not None:
                 action = policy(state)
@@ -186,15 +213,13 @@ class Q_Network(nn.Module):
                     q_values = self.policy_net(state)
                     action = q_values.argmax().item()
                     total_action += action
-                    # self.action_state_tuple_list.append((state, action))
-            # self.states[it] = state.detach().cpu().numpy()
-            # self.actions[it] = action
-            next_state, reward, done = self.sim_env.step(action) #here the reward is combined reward
+
+            req_position = req_list[it]
+            next_state, reward, done = self.sim_env.step(action, req_position) 
             next_state = torch.tensor(next_state, dtype=torch.float32)
-            # calculate -distance reward
-            # extract the distance from the state
-            distances = torch.sort(state[self.sim_env.n_sectors:self.sim_env.n_vehs_in_state])
-            reward = float(-distances[0][action])
+      
+            # distances = torch.sort(state[self.sim_env.n_sectors:self.sim_env.n_vehs_in_state])
+            # reward = float(-distances[0][action])
             total_reward += reward
             state = next_state
         

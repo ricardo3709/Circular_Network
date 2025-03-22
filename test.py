@@ -38,7 +38,7 @@ def test():
                       replay_buffer, eval_freq, update_freq, save_freq)
     
     # load the model
-    epoch = 1300
+    epoch = 2200
     model_name = f'Circular_DQN_{epoch}'
     model.load(model_name)
 
@@ -47,27 +47,38 @@ def test():
 
     percentage_non_greedy_actions_list = []
 
-    tot_test_eps = 1000
+    tot_test_eps = 100
 
     # Test the model
     for it in tqdm(range(tot_test_eps)): # test 1000 times, get the average reward
-        reward_policy, percentage_non_greedy_actions = model.test()
+        # 1. Generate positions of requests
+        req_positions = generate_requests_positions(total_its)
+
+        # 2. Test with the policy
+        reward_policy, percentage_non_greedy_actions = model.test(req_positions)
         total_reward_policy += reward_policy
         percentage_non_greedy_actions_list.append(percentage_non_greedy_actions)
         sim_env.reset()
 
-        # Test the model with greedy policy
-        reward_greedy, _ = model.test(greedy_policy)
+        # 3. Test with the greedy policy with same requests
+        reward_greedy, _ = model.test(req_positions, greedy_policy)
         total_reward_greedy += reward_greedy
         sim_env.reset()
     
     print(f'Average Reward with Policy: {total_reward_policy/tot_test_eps}')
     print(f'Average Reward with Greedy Policy: {total_reward_greedy/tot_test_eps}')
     non_greedy = np.mean(percentage_non_greedy_actions_list)
-    print(f'Average Percentage of Non-Greedy Actions: {non_greedy:.2%}')
+    print(f'Average Percentage of Non-Greedy Actions: {non_greedy:.5%}')
 
     improvement = (total_reward_greedy - total_reward_policy) / total_reward_greedy
-    print(f'Improvement: {improvement:.2%}')
+    print(f'Improvement: {improvement:.5%}')
+
+def generate_requests_positions(step):
+    # Generate a list of length == step
+    # contains random numbers [0,1)
+    req_positions = np.random.randint(0, 1000, size=step) / 1000
+    return req_positions
+    
 
 if __name__ == "__main__":
     test()

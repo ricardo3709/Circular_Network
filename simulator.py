@@ -31,11 +31,14 @@ class Simulator:
         # return self.get_state()
         return self.get_state_discrete()
 
-    def step(self, action):
+    def step(self, action, request_position=None):
         # action: the closest veh or second closest veh
         # action: 0 or 1
         # action: 0 -> closest veh
         # action: 1 -> second closest veh
+
+        if request_position is not None: # For testing
+            self.request.position = request_position
 
         # Calculate the distance between the vehicle and the request
         for veh in self.vehicles:
@@ -45,7 +48,7 @@ class Simulator:
 
         # get reward based on the action
         # reward = -target_vehs[action].distance
-        reward = self.get_reward(action)
+        reward = self.get_reward(action, target_vehs)
 
         # Update States
         # Remove selected veh and random initialize a new veh
@@ -63,12 +66,14 @@ class Simulator:
         distance = min(abs(veh.position - request.position), 1 - abs(veh.position - request.position))
         return distance
     
-    def get_reward(self, action):
+    def get_reward(self, action, target_vehs):
+        reward = -target_vehs[action].distance
+        return reward
         # just base reward
-        veh_positions = [veh.position for veh in self.vehicles]
-        veh_positions.sort()
+        veh_distances = [veh.distance for veh in self.vehicles]
+        veh_distances.sort()
 
-        reward = -veh_positions[action]
+        reward = -veh_distances[action]
         
         return reward
 

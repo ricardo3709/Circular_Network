@@ -30,14 +30,14 @@ def main():
     action_dim = 2 # 0 or 1
     gamma = 0.999
     epsilon = 1.0
-    epsilon_decay = 0.999
+    epsilon_decay = 0.9999
     epsilon_min = 0.10
-    learning_rate = 1e-3
+    learning_rate = 3e-4
     total_eps = 20001 # Total simulation episodes
     sim_env = Simulator(n_vehs, sectors, n_vehs_in_state)
     total_its = 1000 # Total iterations per episode
     eval_freq = 100 # Evaluate the model every 100 episodes
-    update_freq = 2 # Update the target network every 2 episodes
+    update_freq = 10 # Update the target network every 2 episodes
     save_freq = 100 # Save the model every 1000 episodes
 
     replay_buffer = ReplayBuffer(int(total_eps * total_its / 4))
