@@ -26,7 +26,7 @@ def main():
     n_vehs_in_state = n_vehs
     batch_size = 64
     # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
-    state_dim = n_vehs+1 # 10 vehicels(10 gaps) + variance of gaps
+    state_dim = (n_vehs*2+1+4)*4 # 10 vehicels, 10 gaps, 1 request position, gaps mean, gaps variance, 2 closest vehicles distance to request, 4 cat states
     action_dim = 2 # 0 or 1
     gamma = 0.999
     epsilon = 1.0
