@@ -2,7 +2,7 @@
 
 #PBS -l ncpus=12
 #PBS -l ngpus=1
-#PBS -l mem=256GB
+#PBS -l mem=200GB
 #PBS -l jobfs=128GB
 #PBS -q gpuvolta
 #PBS -P ry05
