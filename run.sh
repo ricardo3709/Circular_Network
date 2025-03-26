@@ -1,6 +1,6 @@
 #!/bin/bash 
 
-#PBS -l ncpus=48
+#PBS -l ncpus=12
 #PBS -l ngpus=1
 #PBS -l mem=256GB
 #PBS -l jobfs=128GB
@@ -11,4 +11,4 @@
 #PBS -l wd
 
 module load python3/3.9.2 pytorch/1.9.0
-python3 main.py $PBS_NCPUS > /g/data/ry05/$USER/job_logs/$PBS_JOBID.log
+python3 NCI_main.py $PBS_NCPUS > /g/data/ry05/$USER/job_logs/$PBS_JOBID.log
