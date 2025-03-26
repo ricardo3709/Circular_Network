@@ -352,8 +352,8 @@ def main():
     # 新的并行训练参数
     trainer_update_freq = 50  # 训练进程多少次迭代后更新工作进程的模型
     max_trainer_iterations = total_eps * total_its // batch_size  # 训练的最大迭代次数
-    # buffer_capacity = 200 * 1024 * 1024  # 约2亿个样本，适合384GB内存
-    buffer_capacity = 1024
+    buffer_capacity = 200 * 1024 * 1024  # 约2亿个样本，适合384GB内存
+    # buffer_capacity = 1024
     
     # 模型配置
     model_config = {
