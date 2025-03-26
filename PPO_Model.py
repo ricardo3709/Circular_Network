@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm
 import csv
 import pickle
 import time
@@ -234,7 +234,10 @@ class PPO:
             print(f'Episode: {episode}')
             
             # 收集一整个episode的数据
-            for t in tqdm(range(self.total_its)):
+            # for t in tqdm(range(self.total_its)):
+            for t in range(self.total_its):
+                if t%100 == 0:
+                    print(f'Iteration: {t}')
                 # Choose action
                 action, prob, val = self.choose_action(obs)
                 
@@ -288,7 +291,8 @@ class PPO:
         non_greedy_count = 0
         
         print('Evaluation')
-        for _ in tqdm(range(10)):  # 10 evaluation runs
+        # for _ in tqdm(range(10)):  # 10 evaluation runs
+        for t in range(10):
             for t in range(self.total_its):
                 # Choose action (deterministically for evaluation)
                 with torch.no_grad():  # 新增无梯度上下文
