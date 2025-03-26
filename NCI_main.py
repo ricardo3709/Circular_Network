@@ -39,7 +39,7 @@ def collect_experience(model, sim_env, config, epsilon):
         else:
             with torch.no_grad():
                 state_tensor = torch.FloatTensor(concatenated_state)
-                q_values = model.policy_net(state_tensor)
+                q_values = model(state_tensor)
                 action = q_values.argmax().item()
         
         # 执行动作
@@ -343,14 +343,14 @@ def main():
     epsilon_decay = 0.9999
     epsilon_min = 0.10
     learning_rate = 3e-4
-    total_eps = 20001
-    total_its = 1000
-    eval_freq = 1000
-    update_freq = 10
-    save_freq = 1000
+    total_eps = 10000001
+    total_its = 10000
+    eval_freq = 10000
+    update_freq = 1000
+    save_freq = 10000
     
     # 新的并行训练参数
-    trainer_update_freq = 50  # 训练进程多少次迭代后更新工作进程的模型
+    trainer_update_freq = 1000  # 训练进程多少次迭代后更新工作进程的模型
     max_trainer_iterations = total_eps * total_its // batch_size  # 训练的最大迭代次数
     buffer_capacity = 200 * 1024 * 1024  # 约2亿个样本，适合384GB内存
     # buffer_capacity = 1024
