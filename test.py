@@ -13,24 +13,25 @@ def greedy_policy(state):
     return action
 
 def test():
-     # HyperParameter for DQN
+    # HyperParameter for DQN
     sectors = 4 # Number of sectors of ring
     n_vehs = 10
     n_vehs_in_state = n_vehs
     batch_size = 64
-    state_dim = n_vehs+1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
+    # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
+    state_dim = (n_vehs*2+1+4)*4 # 10 vehicels, 10 gaps, 1 request position, gaps mean, gaps variance, 2 closest vehicles distance to request, 4 cat states
     action_dim = 2 # 0 or 1
-    gamma = 0.995
+    gamma = 0.999
     epsilon = 1.0
-    epsilon_decay = 0.999
-    epsilon_min = 0.01
-    learning_rate = 1e-3
-    total_eps = 1e5 # Total simulation episodes
+    epsilon_decay = 0.9999
+    epsilon_min = 0.10
+    learning_rate = 3e-4
+    total_eps = 20001 # Total simulation episodes
     sim_env = Simulator(n_vehs, sectors, n_vehs_in_state)
     total_its = 1000 # Total iterations per episode
     eval_freq = 100 # Evaluate the model every 100 episodes
-    update_freq = 2 # Update the target network every 2 episodes
-    save_freq = 100 # Save the model every 100 episodes
+    update_freq = 10 # Update the target network every 2 episodes
+    save_freq = 100 # Save the model every 1000 episodes
     replay_buffer = ReplayBuffer(int(1))
 
     model = Q_Network(batch_size, state_dim, action_dim, gamma, epsilon, epsilon_decay, 
@@ -38,7 +39,7 @@ def test():
                       replay_buffer, eval_freq, update_freq, save_freq)
     
     # load the model
-    epoch = 2200
+    epoch = 4000
     model_name = f'Circular_DQN_{epoch}'
     model.load(model_name)
 
