@@ -12,4 +12,4 @@
 
 module load python3/3.9.2 pytorch/1.9.0
 source venv/RL_3.9.2/bin/activate
-mpirun -np 12 python3 NCI_main.py $PBS_NCPUS > /g/data/ry05/$USER/job_logs/$PBS_JOBID.log
+mpirun -np 12 python3 NCI_main.py $PBS_NCPUS > ./job_${PBS_JOBID}.log 2>&1
