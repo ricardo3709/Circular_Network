@@ -11,4 +11,4 @@
 #PBS -l wd
 
 module load python3/3.9.2 pytorch/1.9.0
-python3 NCI_main.py $PBS_NCPUS > /g/data/ry05/$USER/job_logs/$PBS_JOBID.log
+mpirun -np 12 python3 NCI_main.py $PBS_NCPUS > /g/data/ry05/$USER/job_logs/$PBS_JOBID.log

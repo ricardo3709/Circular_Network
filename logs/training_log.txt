@@ -1,1 +1,1 @@
-Episode: 0, Reward: -64.77172000000004, Non-Greedy:8.94%, Loss:0.0006501397862234431
+Training started

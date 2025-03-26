@@ -1,30 +1,79 @@
 import numpy as np
 from simulator import Simulator
-from replay_buffer import SharedReplayBuffer as ReplayBuffer
+from replay_buffer import ReplayBuffer
 import csv
-from PPO_Model import PPO
-from model_NCI import Q_Network
 import torch
-import torch.multiprocessing as mp
+import torch.nn as nn
+from model import Q_Network, DQN
 import os
 import time
-from queue import Empty
+from mpi4py import MPI
+import pickle
+import sys
 
 def greedy_policy(state):
     # Greedy policy
     # Select the vehicle with the minimum distance
     return np.argmin(state[:-1])
 
-def data_collection_worker(worker_id, model_config, shared_buffer, model_queue, stop_event):
-    """
-    数据收集工作进程
+def collect_experience(model, sim_env, config, epsilon):
+    """收集一个episode的经验数据"""
+    # 初始化环境
+    state = sim_env.reset()
     
-    worker_id: 工作进程ID
-    model_config: 模型配置参数
-    shared_buffer: 共享的经验回放缓冲区
-    model_queue: 接收最新模型参数的队列
-    stop_event: 停止事件，用于通知工作进程退出
-    """
+    # 创建历史状态缓冲区
+    state_history = []
+    for _ in range(3):
+        state_history.append(state.copy())
+    
+    # 拼接状态
+    concatenated_state = np.concatenate([state] + state_history)
+    
+    experiences = []
+    total_reward = 0
+    
+    for it in range(config['total_its']):
+        # 选择动作
+        if np.random.rand() < epsilon:
+            action = np.random.randint(0, 2)
+        else:
+            with torch.no_grad():
+                state_tensor = torch.FloatTensor(concatenated_state)
+                q_values = model.policy_net(state_tensor)
+                action = q_values.argmax().item()
+        
+        # 执行动作
+        next_state, reward, done = sim_env.step(action)
+        total_reward += reward
+        
+        # 更新历史状态
+        state_history.pop(0)
+        state_history.append(state.copy())
+        
+        # 拼接下一个状态
+        next_concatenated_state = np.concatenate([next_state] + state_history)
+        
+        # 存储经验
+        experiences.append((
+            concatenated_state.copy(),
+            action,
+            reward,
+            next_concatenated_state.copy(),
+            done
+        ))
+        
+        # 更新状态
+        state = next_state
+        concatenated_state = next_concatenated_state
+    
+    return experiences, total_reward
+
+def data_collection_worker(model_config, comm):
+    """数据收集工作进程"""
+    # 获取MPI信息
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    
     # 创建环境和模型
     sim_env = Simulator(
         model_config['n_vehs'], 
@@ -32,128 +81,83 @@ def data_collection_worker(worker_id, model_config, shared_buffer, model_queue, 
         model_config['n_vehs_in_state']
     )
     
-    # 创建本地模型（只用于推理）
-    model = Q_Network(
-        model_config['batch_size'], 
-        model_config['state_dim'], 
-        model_config['action_dim'],
-        model_config['gamma'], 
-        model_config['epsilon'], 
-        model_config['epsilon_decay'],
-        model_config['epsilon_min'], 
-        model_config['learning_rate'], 
-        model_config['total_eps'],
-        sim_env, 
-        model_config['total_its'], 
-        shared_buffer, 
-        model_config['eval_freq'],
-        model_config['update_freq'], 
-        model_config['save_freq']
-    )
+    # 创建模型实例 (仅用于推理)
+    policy_net = DQN(model_config['state_dim'], model_config['action_dim'])
     
-    device = torch.device("cpu")  # 数据收集工作进程只使用CPU
-    model.policy_net.to(device)
-    model.target_net.to(device)
+    # 运行的epsilon值
+    epsilon = model_config['epsilon']
     
     # 工作进程分配的episode范围
-    total_workers = model_config['n_collection_workers']
-    episodes_per_worker = model_config['total_eps'] // total_workers
-    start_ep = worker_id * episodes_per_worker
-    end_ep = (worker_id + 1) * episodes_per_worker if worker_id < total_workers - 1 else model_config['total_eps']
+    episodes_per_worker = model_config['total_eps'] // (size - 1)
+    start_ep = (rank - 1) * episodes_per_worker
+    end_ep = rank * episodes_per_worker if rank < size - 1 else model_config['total_eps']
+    
+    print(f"Worker {rank} will collect episodes from {start_ep} to {end_ep}")
     
     # 开始收集数据
     ep = start_ep
-    latest_model_params = None
-
-    print(f"Worker {worker_id} starting data collection from episode {start_ep} to {end_ep}")
     
-    while ep < end_ep and not stop_event.is_set():
-        # 检查是否有新的模型参数
-        try:
-            # 非阻塞方式检查队列
-            latest_model_params = model_queue.get_nowait()
-            model.policy_net.load_state_dict(latest_model_params)
-            print(f"Worker {worker_id} updated model parameters")
-        except Empty:
-            # 队列为空，继续使用当前模型
-            pass
+    # 创建本地日志文件
+    log_file = f"logs/worker_{rank}_log.txt"
+    with open(log_file, 'w') as f:
+        f.write(f"Worker {rank} started\n")
+    
+    while ep < end_ep:
+        print(f"Worker {rank} at episode {ep}")
+        # 检查是否有新模型参数
+        if comm.Iprobe(source=0, tag=10):
+            model_params = comm.recv(source=0, tag=10)
+            policy_net.load_state_dict(model_params)
+            with open(log_file, 'a') as f:
+                f.write(f"Episode {ep}: Updated model parameters\n")
         
-        # 初始化环境
-        state = sim_env.reset()
+        # 检查是否收到停止信号
+        if comm.Iprobe(source=0, tag=0):
+            stop_signal = comm.recv(source=0, tag=0)
+            if stop_signal:
+                with open(log_file, 'a') as f:
+                    f.write("Received stop signal\n")
+                break
         
-        # 创建历史状态缓冲区
-        state_history = []
-        for _ in range(3):  # 存储3个历史状态
-            state_history.append(state.copy())
+        # 收集一个episode的经验数据
+        experiences, total_reward = collect_experience(
+            policy_net, sim_env, model_config, epsilon
+        )
+
+        print("finished collecting experiences")
         
-        # 拼接状态
-        concatenated_state = np.concatenate([state] + state_history)
-        concatenated_state_tensor = torch.tensor(concatenated_state, dtype=torch.float32).to(device)
+        # 发送经验数据给训练进程
+        # comm.send(experiences, dest=0, tag=20)
+        request = comm.isend(experiences, dest=0, tag=20)
+        request.wait()
+
+        print("sent experiences to trainer")
         
-        total_reward = 0
+        with open(log_file, 'a') as f:
+            f.write(f"Episode {ep}: Collected experiences, total reward: {total_reward}\n")
         
-        # 执行一个episode的数据收集
-        for it in range(model_config['total_its']):
-            # 选择动作
-            if latest_model_params is None or np.random.rand() < model_config['epsilon']:
-                # 如果还没有收到模型参数或者需要探索，则随机选择动作
-                action = np.random.randint(0, 2)
-            else:
-                # 使用当前策略网络选择动作
-                with torch.no_grad():
-                    q_values = model.policy_net(concatenated_state_tensor)
-                    action = q_values.argmax().item()
-            
-            # 执行动作
-            next_state, reward, done = sim_env.step(action)
-            total_reward += reward
-            
-            # 更新历史状态
-            state_history.pop(0)  # 移除最旧的状态
-            state_history.append(state.copy())  # 添加当前状态
-            
-            # 创建下一个状态的表示
-            next_concatenated_state = np.concatenate([next_state] + state_history)
-            next_concatenated_state_tensor = torch.tensor(next_concatenated_state, dtype=torch.float32).to(device)
-            
-            # 存储经验到共享缓冲区
-            shared_buffer.push(
-                concatenated_state.copy(), 
-                action, 
-                reward, 
-                next_concatenated_state.copy(), 
-                done
-            )
-            
-            # 更新状态
-            state = next_state
-            concatenated_state = next_concatenated_state
-            concatenated_state_tensor = next_concatenated_state_tensor
-            
-            if it >= model_config['total_its'] - 1:
-                done = True
-        
-        if worker_id == 0 and ep % 10 == 0:
-            print(f"Worker {worker_id}: Completed episode {ep}, total reward: {total_reward}, buffer size: {len(shared_buffer)}")
+        # 更新epsilon
+        epsilon = max(model_config['epsilon_min'], epsilon * model_config['epsilon_decay'])
         
         ep += 1
     
-    print(f"Worker {worker_id} completed data collection")
+    # 发送完成信号
+    comm.send(None, dest=0, tag=20)
+    with open(log_file, 'a') as f:
+        f.write("Worker completed\n")
 
-def trainer_process(model_config, shared_buffer, model_queue, stop_event):
-    """
-    模型训练进程
+def trainer_process(model_config, comm):
+    """训练进程"""
+    # 获取MPI信息
+    size = comm.Get_size()
     
-    model_config: 模型配置参数
-    shared_buffer: 共享的经验回放缓冲区
-    model_queue: 发送最新模型参数的队列
-    stop_event: 停止事件，用于通知训练进程退出
-    """
-    # 设置训练进程使用GPU
+    # 使用GPU (如果可用)
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
+        print("Training on GPU")
     else:
         device = torch.device("cpu")
+        print("Training on CPU")
     
     # 创建环境和模型
     sim_env = Simulator(
@@ -162,7 +166,7 @@ def trainer_process(model_config, shared_buffer, model_queue, stop_event):
         model_config['n_vehs_in_state']
     )
     
-    # 创建训练模型
+    # 创建模型
     model = Q_Network(
         model_config['batch_size'], 
         model_config['state_dim'], 
@@ -175,44 +179,70 @@ def trainer_process(model_config, shared_buffer, model_queue, stop_event):
         model_config['total_eps'],
         sim_env, 
         model_config['total_its'], 
-        shared_buffer, 
+        None,  # 不使用类内部的replay buffer
         model_config['eval_freq'],
         model_config['update_freq'], 
         model_config['save_freq']
     )
     
+    # 将模型移到设备上
     model.policy_net.to(device)
     model.target_net.to(device)
     
-    # 清理日志
+    # 创建经验回放缓冲区
+    replay_buffer = ReplayBuffer(model_config['buffer_capacity'])
+    
+    # 清理日志文件
+    os.makedirs('logs', exist_ok=True)
     with open('logs/training_log.txt', 'w') as f:
-        f.write('')
+        f.write("Training started\n")
 
     with open('logs/loss_log.csv', 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['Iteration', 'Avg_Loss', 'Epsilon'])
+        writer.writerow(['Iteration', 'Loss', 'Buffer_Size', 'Epsilon'])
     
-    print("Trainer process initialized. Waiting for sufficient data...")
+    # 活动工作进程数量
+    active_workers = size - 1
+    completed_workers = 0
     
-    # 等待足够的数据收集
-    while len(shared_buffer) < model_config['batch_size'] and not stop_event.is_set():
-        time.sleep(1)
-    
-    print(f"Starting training with buffer size: {len(shared_buffer)}")
-    
-    # 开始训练过程
+    # 训练迭代计数器
     iteration = 0
-    update_freq = model_config['trainer_update_freq']  # 每隔多少次迭代更新一次工作进程的模型
-    collected_losses = []
     
-    while iteration < model_config['max_trainer_iterations'] and not stop_event.is_set():
-        # 如果经验缓冲区为空，等待数据
-        if len(shared_buffer) < model_config['batch_size']:
+    # 发送初始模型参数给所有工作进程
+    initial_params = model.policy_net.state_dict()
+    for i in range(1, size):
+        cpu_params = {k: v.cpu() for k, v in initial_params.items()}
+        comm.send(cpu_params, dest=i, tag=10)
+    
+    print(f"Sent initial model to {size-1} workers")
+    
+    # 训练循环
+    loss_history = []
+    
+    while active_workers > 0:
+        # 检查是否有工作进程发送经验数据
+        for i in range(1, size):
+            if comm.Iprobe(source=i, tag=20):
+                experiences = comm.recv(source=i, tag=20)
+                
+                # 如果收到None，表示工作进程已完成
+                if experiences is None:
+                    active_workers -= 1
+                    completed_workers += 1
+                    print(f"Worker {i} completed. {active_workers} workers still active.")
+                    continue
+                
+                # 将经验数据添加到回放缓冲区
+                for exp in experiences:
+                    replay_buffer.push(*exp)
+        
+        # 如果回放缓冲区不够大，等待更多数据
+        if len(replay_buffer) < model_config['batch_size']:
             time.sleep(0.1)
             continue
         
-        # 从经验回放缓冲区中采样批次
-        batch = shared_buffer.sample(model_config['batch_size'])
+        # 从回放缓冲区采样batch
+        batch = replay_buffer.sample(model_config['batch_size'])
         states, actions, rewards, next_states, dones = zip(*batch)
         
         # 转换为张量并移动到设备
@@ -231,7 +261,8 @@ def trainer_process(model_config, shared_buffer, model_queue, stop_event):
         
         # 计算损失
         loss = model.loss(q_values, target_q_values)
-        collected_losses.append(loss.item())
+        loss_value = loss.item()
+        loss_history.append(loss_value)
         
         # 更新网络
         model.optimizer.zero_grad()
@@ -240,55 +271,66 @@ def trainer_process(model_config, shared_buffer, model_queue, stop_event):
         
         # 记录训练信息
         if iteration % 100 == 0:
-            avg_loss = np.mean(collected_losses) if collected_losses else 0
-            print(f"Trainer: Iteration {iteration}, Loss: {avg_loss}, Buffer size: {len(shared_buffer)}")
+            avg_loss = np.mean(loss_history)
+            loss_history = []
+            print(f"Iteration {iteration}, Loss: {avg_loss}, Buffer size: {len(replay_buffer)}, Active workers: {active_workers}")
+            
             with open('logs/loss_log.csv', 'a', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow([iteration, avg_loss, model_config['epsilon']])
-            collected_losses = []
+                writer.writerow([iteration, avg_loss, len(replay_buffer), model.epsilon])
         
         # 定期更新目标网络
         if iteration % model_config['update_freq'] == 0:
             model.target_net.load_state_dict(model.policy_net.state_dict())
         
-        # 定期发送更新后的模型参数给工作进程
-        if iteration % update_freq == 0:
-            # 将模型参数转移到CPU再发送
-            cpu_state_dict = {k: v.cpu() for k, v in model.policy_net.state_dict().items()}
-            model_queue.put(cpu_state_dict)
-            print(f"Trainer: Sent updated model parameters at iteration {iteration}")
+        # 定期发送更新后的模型参数给所有工作进程
+        if iteration % model_config['trainer_update_freq'] == 0:
+            updated_params = model.policy_net.state_dict()
+            for i in range(1, size):
+                if i != completed_workers + 1:  # 跳过已完成的工作进程
+                    cpu_params = {k: v.cpu() for k, v in updated_params.items()}
+                    comm.send(cpu_params, dest=i, tag=10)
+            print(f"Sent updated model at iteration {iteration}")
         
         # 定期保存模型
         if iteration % model_config['save_freq'] == 0:
+            save_path = f'saved_models/Circular_DQN_iter_{iteration}'
+            os.makedirs('saved_models', exist_ok=True)
             model.save(f'Circular_DQN_iter_{iteration}')
+            print(f"Saved model at iteration {iteration}")
         
         # 定期评估模型
         if iteration % model_config['eval_freq'] == 0:
             reward, non_greedy = model.eval(device)
             with open('logs/training_log.txt', 'a') as f:
-                f.write(f"Iteration {iteration}, Reward: {reward}, Non-Greedy: {non_greedy:.2%}, Loss: {np.mean(collected_losses) if collected_losses else 0}\n")
+                f.write(f"Iteration {iteration}, Reward: {reward}, Non-Greedy: {non_greedy:.2%}, Loss: {avg_loss if 'avg_loss' in locals() else 'N/A'}\n")
         
         iteration += 1
+        
+        # 如果达到最大迭代次数，提前退出
+        if iteration >= model_config['max_trainer_iterations']:
+            print(f"Reached maximum iterations ({iteration}). Sending stop signal to workers.")
+            for i in range(1, size):
+                if i != completed_workers + 1:  # 跳过已完成的工作进程
+                    comm.send(True, dest=i, tag=0)
+            break
     
-    print("Trainer process completed")
-    # 发送最终模型
-    cpu_state_dict = {k: v.cpu() for k, v in model.policy_net.state_dict().items()}
-    model_queue.put(cpu_state_dict)
-    # 设置停止事件，通知其他进程退出
-    stop_event.set()
+    print("Training completed")
+    
+    # 保存最终模型
+    model.save('Circular_DQN_final')
+    print("Saved final model")
 
 def main():
-    # 设置多处理方法
-    mp.set_start_method('spawn', force=True)
+    # 初始化MPI环境
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
     
-    # 清理日志
-    with open('logs/training_log.txt', 'w') as f:
-        f.write('')
-
-    with open('logs/loss_log.csv', 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(['Iteration', 'Avg_Loss', 'Epsilon'])
-
+    if size < 2:
+        print("Error: At least 2 MPI processes are required (1 for training, 1+ for data collection)")
+        return
+    
     # 超参数
     sectors = 4
     n_vehs = 10
@@ -301,17 +343,17 @@ def main():
     epsilon_decay = 0.9999
     epsilon_min = 0.10
     learning_rate = 3e-4
-    total_eps = 50001
+    total_eps = 20001
     total_its = 1000
     eval_freq = 1000
     update_freq = 10
     save_freq = 1000
     
     # 新的并行训练参数
-    n_cpus = mp.cpu_count()
-    n_collection_workers = min(n_cpus - 1, 23 if torch.cuda.is_available() else 11)  # 保留一个CPU用于训练
     trainer_update_freq = 50  # 训练进程多少次迭代后更新工作进程的模型
     max_trainer_iterations = total_eps * total_its // batch_size  # 训练的最大迭代次数
+    # buffer_capacity = 200 * 1024 * 1024  # 约2亿个样本，适合384GB内存
+    buffer_capacity = 1024
     
     # 模型配置
     model_config = {
@@ -331,62 +373,29 @@ def main():
         'eval_freq': eval_freq,
         'update_freq': update_freq,
         'save_freq': save_freq,
-        'n_collection_workers': n_collection_workers,
         'trainer_update_freq': trainer_update_freq,
-        'max_trainer_iterations': max_trainer_iterations
+        'max_trainer_iterations': max_trainer_iterations,
+        'buffer_capacity': buffer_capacity
     }
     
-    # 创建共享经验回放缓冲区
-    replay_buffer_capacity = int(100*1024*1024)
-    shared_buffer = ReplayBuffer(replay_buffer_capacity)
+    # 创建日志目录
+    os.makedirs('logs', exist_ok=True)
+    os.makedirs('saved_models', exist_ok=True)
     
-    # 创建模型参数队列和停止事件
-    model_queue = mp.Queue()
-    stop_event = mp.Event()
+    # 根据rank分配角色
+    if rank == 0:
+        print(f"Process {rank} starting as trainer")
+        # 训练进程
+        trainer_process(model_config, comm)
+    else:
+        print(f"Process {rank} starting as data collector")
+        # 数据收集进程
+        data_collection_worker(model_config, comm)
     
-    # 启动训练进程
-    trainer = mp.Process(target=trainer_process, args=(model_config, shared_buffer, model_queue, stop_event))
-    trainer.start()
-    
-    # 启动数据收集进程
-    collectors = []
-    for i in range(n_collection_workers):
-        collector = mp.Process(target=data_collection_worker, args=(i, model_config, shared_buffer, model_queue, stop_event))
-        collector.start()
-        collectors.append(collector)
-    
-    try:
-        # 等待训练进程完成
-        trainer.join()
-        
-        # 训练完成后，通知所有数据收集进程退出
-        stop_event.set()
-        
-        # 等待所有数据收集进程完成
-        for collector in collectors:
-            collector.join()
-            
+    # 同步所有进程
+    comm.Barrier()
+    if rank == 0:
         print("All processes completed successfully.")
-    except KeyboardInterrupt:
-        print("Training interrupted by user.")
-        stop_event.set()
-        
-        # 等待所有进程结束
-        trainer.join()
-        for collector in collectors:
-            collector.join()
-        
-        print("All processes terminated.")
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        stop_event.set()
-        
-        # 等待所有进程结束
-        trainer.join()
-        for collector in collectors:
-            collector.join()
-        
-        print("All processes terminated due to error.")
 
 if __name__ == "__main__":
     main()
