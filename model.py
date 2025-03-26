@@ -2,7 +2,7 @@ import torch
 import pickle
 import torch.nn as nn
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm
 from collections import deque
 
 import csv
@@ -115,7 +115,10 @@ class Q_Network(nn.Module):
             ep_losses = []
             print(f'Episode: {ep}')
 
-            for it in tqdm(range(self.tot_its)):
+            # for it in tqdm(range(self.tot_its)):
+            for it in range(self.tot_its):
+                if it%100 == 0:
+                    print(f'Iteration: {it}')
                 # 选择动作
                 if np.random.rand() < self.epsilon:
                     action = np.random.randint(0, 2)
@@ -203,7 +206,8 @@ class Q_Network(nn.Module):
         action_sum = 0
         
         print(f'Evaluation')
-        for _ in tqdm(range(100)):
+        # for _ in tqdm(range(100)):
+        for _ in range(100):
             # 初始化环境
             state = self.sim_env.reset()
             
