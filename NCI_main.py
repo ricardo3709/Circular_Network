@@ -4,7 +4,7 @@ from replay_buffer import ReplayBuffer
 import csv
 import torch
 import torch.nn as nn
-from model import Q_Network, DQN
+from model_NCI import Q_Network, DQN
 import os
 import time
 from mpi4py import MPI
