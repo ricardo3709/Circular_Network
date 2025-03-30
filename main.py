@@ -22,7 +22,7 @@ def main():
 
     # HyperParameter for DQN
     sectors = 4 # Number of sectors of ring
-    n_vehs = 10
+    n_vehs = 50
     n_vehs_in_state = n_vehs
     batch_size = 64
     # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
