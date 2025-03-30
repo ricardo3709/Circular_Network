@@ -40,7 +40,7 @@ def main():
     update_freq = 10 # Update the target network every 2 episodes
     save_freq = 100 # Save the model every 1000 episodes
 
-    replay_buffer = ReplayBuffer(int(total_eps * total_its / 4))
+    replay_buffer = ReplayBuffer(int(2e7))
     # replay_buffer = ReplayBuffer(1000)
 
     # DQN Model

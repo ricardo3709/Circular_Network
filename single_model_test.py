@@ -43,55 +43,42 @@ def test():
         writer = csv.writer(f)
         writer.writerow(['Epoch', 'Avg_Reward_Policy', 'Avg_Reward_Greedy', 'Avg_Non_Greedy_Actions', 'Improvement'])
     
-    # # load the model
-    # epoch = 9300
-    # model_name = f'Circular_DQN_{epoch}'
-    # model.load(model_name)
+    # load the model
+    epoch = 5200
+    model_name = f'Circular_DQN_{epoch}'
+    model.load(model_name)
 
-    # total_reward_policy = 0
-    # total_reward_greedy = 0
+    total_reward_policy = 0
+    total_reward_greedy = 0
 
-    # percentage_non_greedy_actions_list = []
+    percentage_non_greedy_actions_list = []
 
-    # tot_test_eps = 50
+    tot_test_eps = 50
 
-    # test all models
-    for epoch in tqdm(range(0, 12000, 100)):
-        model_name = f'Circular_DQN_{epoch}'
-        model.load(model_name)
+        
+    # Test the model
+    for it in tqdm(range(tot_test_eps)): # test 1000 times, get the average reward
+        # 1. Generate positions of requests
+        req_positions = generate_requests_positions(total_its)
 
-        total_reward_policy = 0
-        total_reward_greedy = 0
+        # 2. Test with the policy
+        reward_policy, percentage_non_greedy_actions = model.test(req_positions)
+        total_reward_policy += reward_policy
+        percentage_non_greedy_actions_list.append(percentage_non_greedy_actions)
+        sim_env.reset()
 
-        percentage_non_greedy_actions_list = []
+        # 3. Test with the greedy policy with same requests
+        reward_greedy, _ = model.test(req_positions, greedy_policy)
+        total_reward_greedy += reward_greedy
+        sim_env.reset()
 
-        tot_test_eps = 50
-            
-        # Test the model
-        for it in range(tot_test_eps): # test 1000 times, get the average reward
-            # 1. Generate positions of requests
-            req_positions = generate_requests_positions(total_its)
-
-            # 2. Test with the policy
-            reward_policy, percentage_non_greedy_actions = model.test(req_positions)
-            total_reward_policy += reward_policy
-            percentage_non_greedy_actions_list.append(percentage_non_greedy_actions)
-            sim_env.reset()
-
-            # 3. Test with the greedy policy with same requests
-            reward_greedy, _ = model.test(req_positions, greedy_policy)
-            total_reward_greedy += reward_greedy
-            sim_env.reset()
-
-        avg_reward_policy = total_reward_policy / tot_test_eps
-        avg_reward_greedy = total_reward_greedy / tot_test_eps
-        non_greedy = np.mean(percentage_non_greedy_actions_list)
-        improvement = (total_reward_greedy - total_reward_policy) / total_reward_greedy
-        # save the results to a csv file
-        with open('logs/test_log.csv', 'a', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow([epoch, avg_reward_policy, avg_reward_greedy, non_greedy, improvement])
-    
+    avg_reward_policy = total_reward_policy / tot_test_eps
+    avg_reward_greedy = total_reward_greedy / tot_test_eps
+    non_greedy = np.mean(percentage_non_greedy_actions_list)
+    improvement = (total_reward_greedy - total_reward_policy) / total_reward_greedy
+    print(f"Avg Reward Policy: {avg_reward_policy:.4f}, Avg Reward Greedy: {avg_reward_greedy:.4f}, Non-Greedy Actions: {non_greedy:%}, Improvement: {improvement:%}")
+        
+        
 def generate_requests_positions(step):
     # Generate a list of length == step
     # contains random numbers [0,1)
