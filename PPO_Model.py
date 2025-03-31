@@ -252,6 +252,10 @@ class PPO:
                 
                 actor_loss.backward()
                 critic_loss.backward()
+
+                actor_losses.append(actor_loss.item())
+                critic_losses.append(critic_loss.item())
+                entropies.append(entropy.item())
                 
                 self.actor_optimizer.step()
                 self.critic_optimizer.step()
@@ -323,11 +327,12 @@ class PPO:
             # Calculate Avg Losses
             avg_actor_loss = np.mean(ep_actor_losses)
             avg_critic_loss = np.mean(ep_critic_losses)
+            avg_entropy = np.mean(ep_entropy)
             
             # Log results
             with open(self.loss_path, 'a', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow([episode, total_reward, non_greedy_percentage, avg_actor_loss, avg_critic_loss, ep_entropy])
+                writer.writerow([episode, total_reward, non_greedy_percentage, avg_actor_loss, avg_critic_loss, avg_entropy])
                 
             
             # Evaluate the model
