@@ -7,38 +7,82 @@ import numpy as np
 import csv
 import pickle
 import time
+from collections import deque
 
+class ResidualBlock(nn.Module):
+    def __init__(self, dim):
+        super(ResidualBlock, self).__init__()
+        self.fc1 = nn.Linear(dim, dim)
+        self.fc2 = nn.Linear(dim, dim)
+    
+    def forward(self, x):
+        residual = x  # 保存输入用于后续相加
+        out = F.relu(self.fc1(x))
+        out = self.fc2(out)
+        out += residual  # 残差连接
+        out = F.relu(out)
+        return out
+    
 class ActorNetwork(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(ActorNetwork, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 128)
-        self.fc2 = nn.Linear(128, 64)
-        self.fc3 = nn.Linear(64, 32)
-        self.fc4 = nn.Linear(32, action_dim)
+        self.fc1 = nn.Linear(state_dim, 512)
+        self.res1 = ResidualBlock(512)
+
+        self.fc2 = nn.Linear(512, 256)
+        self.res2 = ResidualBlock(256)
+
+        self.fc3 = nn.Linear(256, 128)
+        self.res3 = ResidualBlock(128)
+
+        self.fc4 = nn.Linear(128, 64)
+
+        self.fc5 = nn.Linear(64, action_dim)
         
     def forward(self, x):
         x = F.relu(self.fc1(x))
+        x = self.res1(x)
+
         x = F.relu(self.fc2(x))
+        x = self.res2(x)
+
         x = F.relu(self.fc3(x))
-        return F.softmax(self.fc4(x), dim=-1)  
+        x = self.res3(x)
+
+        x = F.relu(self.fc4(x))
+
+        return F.softmax(self.fc5(x), dim=-1)
 
 class CriticNetwork(nn.Module):
     def __init__(self, state_dim):
         super(CriticNetwork, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 128)
-        self.ln1 = nn.LayerNorm(128)  # 添加LN层
-        self.fc2 = nn.Linear(128, 64)
-        self.ln2 = nn.LayerNorm(64)
-        self.fc3 = nn.Linear(64, 32)
-        self.ln3 = nn.LayerNorm(32)
-        self.fc4 = nn.Linear(32, 1)
+        self.fc1 = nn.Linear(state_dim, 512)
+        self.res1 = ResidualBlock(512)
+        
+        self.fc2 = nn.Linear(512, 256)
+        self.res2 = ResidualBlock(256)
+        
+        self.fc3 = nn.Linear(256, 128)
+        self.res3 = ResidualBlock(128)
+        
+        self.fc4 = nn.Linear(128, 64)
+        # 最后一层输出单个标量
+        self.fc5 = nn.Linear(64, 1)
         
     def forward(self, x):
-        x = self.ln1(F.relu(self.fc1(x)))  # LN在激活后应用
-        x = self.ln2(F.relu(self.fc2(x)))
-        x = self.ln3(F.relu(self.fc3(x)))
-        return self.fc4(x)
-
+        x = F.relu(self.fc1(x))
+        x = self.res1(x)
+        
+        x = F.relu(self.fc2(x))
+        x = self.res2(x)
+        
+        x = F.relu(self.fc3(x))
+        x = self.res3(x)
+        
+        x = F.relu(self.fc4(x))
+        # 输出状态值，不经过激活函数
+        return self.fc5(x)
+    
 class PPOMemory:
     def __init__(self, batch_size):
         self.states = []
@@ -112,7 +156,12 @@ class PPO:
         self.critic.eval()
         
         with torch.no_grad():  # 禁用梯度计算
-            state = torch.tensor([observation], dtype=torch.float)
+            if not torch.is_tensor(observation):
+                observation = torch.tensor(observation, dtype=torch.float)
+            if observation.dim() == 1:
+                observation = observation.unsqueeze(0)
+            
+            state = observation
             probabilities = self.actor(state)
             value = self.critic(state)
         
@@ -151,9 +200,6 @@ class PPO:
         
         # 归一化优势函数 (新增)
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-        
-        # 修改前错误实现
-        # returns = advantages + vals[:-1]
         
         # 修改后正确实现
         advantages_tensor = torch.tensor(advantages, dtype=torch.float32)
@@ -197,8 +243,8 @@ class PPO:
                 actor_loss = -torch.min(weighted_probs, weighted_clipped_probs).mean() - self.entropy_coef * entropy
                 
                 # Calculate critic loss (MSE)
-                returns = batch_advantages + vals[batch]
-                critic_loss = F.mse_loss(critic_value, returns)
+                # returns = batch_advantages + vals[batch]
+                critic_loss = F.mse_loss(critic_value, batch_returns)
                 
                 # Update actor and critic
                 self.actor_optimizer.zero_grad()
@@ -230,16 +276,23 @@ class PPO:
             done = False
             total_reward = 0
             non_greedy_count = 0
+
+            obs_history = deque(maxlen=3)
+            for _ in range(3):
+                obs_history.append(obs.copy())
+
+            concatenated_obs = np.concatenate([obs] + list(obs_history))
+            concatenated_obs = torch.tensor(concatenated_obs, dtype=torch.float32)
             
             print(f'Episode: {episode}')
             
             # 收集一整个episode的数据
             # for t in tqdm(range(self.total_its)):
             for t in range(self.total_its):
-                if t%100 == 0:
-                    print(f'Iteration: {t}')
+                # if t%100 == 0:
+                #     print(f'Iteration: {t}')
                 # Choose action
-                action, prob, val = self.choose_action(obs)
+                action, prob, val = self.choose_action(concatenated_obs)
                 
                 # Count non-greedy actions (action=1)
                 if action == 1:
@@ -247,12 +300,18 @@ class PPO:
                 
                 # Take action in environment
                 next_obs, reward, done = self.sim_env.step(action)
+
+                # Update observation history
+                obs_history.append(obs.copy())
+                next_concatenated_obs = np.concatenate([next_obs] + list(obs_history))
+                next_concatenated_obs = torch.tensor(next_concatenated_obs, dtype=torch.float32)
                 
                 # Store the transition
-                self.memory.store_memory(obs, action, prob, val, reward, done)
+                self.memory.store_memory(concatenated_obs.numpy(), action, prob, val, reward, done)
                 
                 # Update observation and total reward
                 obs = next_obs
+                concatenated_obs = next_concatenated_obs
                 total_reward += reward
             
             # 每个episode结束后进行一次学习
@@ -289,17 +348,30 @@ class PPO:
         obs = self.sim_env.reset()
         total_reward = 0
         non_greedy_count = 0
+
+        eval_runs = 10
         
         print('Evaluation')
         # for _ in tqdm(range(10)):  # 10 evaluation runs
-        for t in range(10):
+        for run in range(eval_runs):
+            obs = self.sim_env.reset()
+            obs_history = deque(maxlen=3)
+            for _ in range(3):
+                obs_history.append(obs.copy())
+            concatenated_obs = np.concatenate([obs] + list(obs_history))
+            concatenated_obs = torch.tensor(concatenated_obs, dtype=torch.float32)
+
             for t in range(self.total_its):
-                # Choose action (deterministically for evaluation)
-                with torch.no_grad():  # 新增无梯度上下文
-                    state = torch.tensor([obs], dtype=torch.float)
-                    probabilities = self.actor(state)
+                with torch.no_grad():  
+                    # 若输入为一维，则增加 batch 维度
+                    if concatenated_obs.dim() == 1:
+                        state_input = concatenated_obs.unsqueeze(0)
+                    else:
+                        state_input = concatenated_obs
+                    probabilities = self.actor(state_input)
+                    # 采用确定性策略：选择概率最大的动作
                     action = torch.argmax(probabilities, dim=1).item()
-                
+                    
                 # Count non-greedy actions
                 if action == 1:
                     non_greedy_count += 1
@@ -307,7 +379,14 @@ class PPO:
                 # Take action
                 next_obs, reward, _ = self.sim_env.step(action)
                 total_reward += reward
+
+                # Update observation history
+                obs_history.append(obs.copy())
                 obs = next_obs
+
+                next_concatenated_obs = np.concatenate([next_obs] + list(obs_history))
+                next_concatenated_obs = torch.tensor(next_concatenated_obs, dtype=torch.float32)
+                concatenated_obs = next_concatenated_obs
         
         # Calculate average reward and non-greedy percentage
         avg_reward = total_reward / 10
