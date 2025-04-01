@@ -41,13 +41,13 @@ class ActorNetwork(nn.Module):
         
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        x = self.res1(x)
+        # x = self.res1(x)
 
         x = F.relu(self.fc2(x))
-        x = self.res2(x)
+        # x = self.res2(x)
 
         x = F.relu(self.fc3(x))
-        x = self.res3(x)
+        # x = self.res3(x)
 
         x = F.relu(self.fc4(x))
 
@@ -71,13 +71,13 @@ class CriticNetwork(nn.Module):
         
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        x = self.res1(x)
+        # x = self.res1(x)
         
         x = F.relu(self.fc2(x))
-        x = self.res2(x)
+        # x = self.res2(x)
         
         x = F.relu(self.fc3(x))
-        x = self.res3(x)
+        # x = self.res3(x)
         
         x = F.relu(self.fc4(x))
         # 输出状态值，不经过激活函数

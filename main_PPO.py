@@ -38,7 +38,7 @@ def main():
     state_dim = (n_vehs*2+1+4)*4 
     ppo_agent = PPO(
         state_dim, action_dim, lr_actor, lr_critic, gamma, gae_lambda=0.97,
-        policy_clip=0.2, batch_size=batch_size, n_epochs=10, entropy_coef=0.05,
+        policy_clip=0.2, batch_size=batch_size, n_epochs=10, entropy_coef=0.005,
         sim_env=sim_env, total_its=total_its, eval_freq=100, save_freq=100
     )
 
