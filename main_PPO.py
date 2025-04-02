@@ -22,15 +22,15 @@ def main():
 
     # HyperParameter for DQN
     sectors = 4 # Number of sectors of ring
-    n_vehs = 50
+    n_vehs = 10
     batch_size = 128
     n_vehs_in_state = n_vehs
     state_dim = (n_vehs*2+1+4)*4 # 10 vehicels, 10 gaps, 1 request position, gaps mean, gaps variance, 2 closest vehicles distance to request, 4 cat states
     action_dim = 2 # 0 or 1
-    gamma = 0.999
+    gamma = 0.9999
     total_eps = 20001 # Total simulation episodes
     sim_env = Simulator(n_vehs, sectors, n_vehs_in_state)
-    total_its = 2000 # Total iterations per episode
+    total_its = 4000 # Total iterations per episode
 
     # PPO Model
     lr_actor = 1e-4
@@ -38,7 +38,7 @@ def main():
     state_dim = (n_vehs*2+1+4)*4 
     ppo_agent = PPO(
         state_dim, action_dim, lr_actor, lr_critic, gamma, gae_lambda=0.97,
-        policy_clip=0.2, batch_size=batch_size, n_epochs=10, entropy_coef=0.005,
+        policy_clip=0.05, batch_size=batch_size, n_epochs=10, entropy_coef=0.0001,
         sim_env=sim_env, total_its=total_its, eval_freq=100, save_freq=100
     )
 

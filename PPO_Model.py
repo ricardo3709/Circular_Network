@@ -38,16 +38,24 @@ class ActorNetwork(nn.Module):
         self.fc4 = nn.Linear(128, 64)
 
         self.fc5 = nn.Linear(64, action_dim)
+        self.initialize_weights()
         
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight.data)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias.data, 0)
+
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        # x = self.res1(x)
+        x = self.res1(x)
 
         x = F.relu(self.fc2(x))
-        # x = self.res2(x)
+        x = self.res2(x)
 
         x = F.relu(self.fc3(x))
-        # x = self.res3(x)
+        x = self.res3(x)
 
         x = F.relu(self.fc4(x))
 
@@ -68,16 +76,25 @@ class CriticNetwork(nn.Module):
         self.fc4 = nn.Linear(128, 64)
         # 最后一层输出单个标量
         self.fc5 = nn.Linear(64, 1)
+
+        self.initialize_weights()
+        
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight.data)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias.data, 0)
         
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        # x = self.res1(x)
+        x = self.res1(x)
         
         x = F.relu(self.fc2(x))
-        # x = self.res2(x)
+        x = self.res2(x)
         
         x = F.relu(self.fc3(x))
-        # x = self.res3(x)
+        x = self.res3(x)
         
         x = F.relu(self.fc4(x))
         # 输出状态值，不经过激活函数
