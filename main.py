@@ -3,7 +3,8 @@ from simulator import Simulator
 from replay_buffer import ReplayBuffer
 import csv
 from PPO_Model import PPO
-from model import Q_Network
+# from model import Q_Network
+from model_res_DQN import Q_Network
 
 def greedy_policy(state):
     # Greedy policy
