@@ -355,8 +355,9 @@ class PPO:
             # Evaluate the model
             if episode % self.eval_freq == 0:
                 eval_reward, eval_non_greedy = self.eval()
+                eval_reward /= self.total_its
                 with open(self.log_path, 'a') as f:
-                    f.write(f'Episode: {episode}, Reward: {eval_reward}, Non-Greedy: {eval_non_greedy:.2%}\n')
+                    f.write(f'Episode: {episode}, Avg Reward: {eval_reward}, Non-Greedy: {eval_non_greedy:.2%}\n')
             
             # Save the model
             if episode % self.save_freq == 0:
@@ -418,36 +419,49 @@ class PPO:
         self.critic.train()
         return avg_reward, non_greedy_percentage
     
-    def test(self, policy=None):
+    def test(self, req_list, policy=None):
         """Test the policy on a single episode"""
+        np.random.seed(0)
+        torch.manual_seed(0)
+
+
         obs = self.sim_env.reset()
         total_reward = 0
         non_greedy_count = 0
+
+        obs_history = deque(maxlen=3)
+        for _ in range(3):
+            obs_history.append(obs.copy())
+        
+        concatenated_obs = np.concatenate([obs] + list(obs_history))
+        concatenated_obs = torch.tensor(concatenated_obs, dtype=torch.float32)
+
+        total_reward = 0
+        total_action = 0
         
         for t in range(self.total_its):
-            if policy is not None:
-                action = policy(obs)
-            else:
+
+            if policy is None:
                 with torch.no_grad():
-                    state = torch.tensor([obs], dtype=torch.float)
-                    probabilities = self.actor(state)
-                    action = torch.argmax(probabilities, dim=1).item()
+                    probabilities = self.actor(concatenated_obs)
+                    action = torch.argmax(probabilities, dim=-1).item()
+                    total_action += action
+            else:
+                action = policy(obs)
             
-            if action == 1:
-                non_greedy_count += 1
+            req_position = req_list[t]
+            next_obs, reward, _ = self.sim_env.step(action, req_position)
+
+            obs_history.append(obs.copy())
             
-            next_obs, reward, _ = self.sim_env.step(action)
-            
-            # Calculate -distance reward (matching the DQN implementation for fair comparison)
-            distances = sorted([self.sim_env.get_distance(veh, self.sim_env.request) for veh in self.sim_env.vehicles])
-            distance_reward = -distances[action]
-            
-            total_reward += distance_reward
             obs = next_obs
+            concatenated_obs = np.concatenate([obs] + list(obs_history))
+            concatenated_obs = torch.tensor(concatenated_obs, dtype=torch.float32)
+            total_reward += reward
         
-        non_greedy_percentage = non_greedy_count / self.total_its
+        percentage_of_non_greedy_actions = total_action / self.total_its
         
-        return total_reward, non_greedy_percentage
+        return total_reward, percentage_of_non_greedy_actions
     
     def save(self, filename):
         """Save model parameters"""

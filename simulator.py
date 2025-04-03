@@ -68,6 +68,10 @@ class Simulator:
     
     def get_reward(self, action, target_vehs):
         reward = -target_vehs[action].distance
+        
+        reward *= self.n_vehs # scale the reward, mean reward is -0.5
+        reward += 0.5 # make the mean of reward to be 0
+
         return reward
         # just base reward
         veh_distances = [veh.distance for veh in self.vehicles]

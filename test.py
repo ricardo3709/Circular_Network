@@ -3,6 +3,7 @@ from simulator import Simulator
 from replay_buffer import ReplayBuffer
 import csv
 from model import Q_Network
+from PPO_Model import PPO
 import torch
 from tqdm import tqdm
 
@@ -15,7 +16,7 @@ def greedy_policy(state):
 def test():
     # HyperParameter for DQN
     sectors = 4 # Number of sectors of ring
-    n_vehs = 3
+    n_vehs = 10
     n_vehs_in_state = n_vehs
     batch_size = 64
     # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
@@ -34,9 +35,24 @@ def test():
     save_freq = 100 # Save the model every 1000 episodes
     replay_buffer = ReplayBuffer(int(1))
 
-    model = Q_Network(batch_size, state_dim, action_dim, gamma, epsilon, epsilon_decay, 
-                      epsilon_min, learning_rate, total_eps, sim_env, total_its, 
-                      replay_buffer, eval_freq, update_freq, save_freq)
+    # select model to test
+    # model_name = 'DQN'
+    model_name = 'PPO'
+
+    if model_name == 'DQN':
+        model = Q_Network(batch_size, state_dim, action_dim, gamma, epsilon, epsilon_decay, 
+                        epsilon_min, learning_rate, total_eps, sim_env, total_its, 
+                        replay_buffer, eval_freq, update_freq, save_freq)
+
+
+    elif model_name == 'PPO':
+        model = PPO(
+            state_dim, action_dim, lr_actor=1e-4, lr_critic=3e-4, gamma=gamma,
+            gae_lambda=0.97, policy_clip=0.2, batch_size=batch_size, n_epochs=10,
+            entropy_coef=0.0001, sim_env=sim_env, total_its=total_its,
+            eval_freq=eval_freq, save_freq=save_freq
+        )
+
     
     # write the header to the csv file
     with open('logs/test_log.csv', 'w', newline='') as f:
@@ -56,10 +72,11 @@ def test():
     # tot_test_eps = 50
 
     # test all models
-    max_epoch = 5400
-    for epoch in tqdm(range(0, max_epoch, 100)):
-        model_name = f'Circular_DQN_{epoch}'
-        model.load(model_name)
+    max_epoch = 13000
+    min_epoch = 10000
+    for epoch in tqdm(range(min_epoch, max_epoch, 100)):
+        model_name_load = f'Circular_{model_name}_{epoch}'
+        model.load(model_name_load)
 
         total_reward_policy = 0
         total_reward_greedy = 0

@@ -147,8 +147,8 @@ class Q_Network(nn.Module):
 
             # for it in tqdm(range(self.tot_its)):
             for it in range(self.tot_its):
-                if it%100 == 0:
-                    print(f'Iteration: {it}')
+                # if it%100 == 0:
+                #     print(f'Iteration: {it}')
                 # 选择动作
                 if np.random.rand() < self.epsilon:
                     action = np.random.randint(0, 2)
