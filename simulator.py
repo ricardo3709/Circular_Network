@@ -3,97 +3,110 @@ from vehicle import Vehicle
 from request import Request
 import torch
 import torch.nn as nn
+import math
+import bisect
 
 class Simulator:
-    def __init__(self, n_vehs, sectors, n_vehs_in_state):
+    def __init__(self, n_vehs, n_slots):
+        self.n_slots = n_slots
         self.n_vehs = n_vehs  # Number of Vehs
-        self.n_sectors = sectors  # Number of sectors
-        self.vehicles = [Vehicle() for _ in range(n_vehs)]  # Initialize vehicles
-        self.request = Request()
-        self.n_vehs_in_state = n_vehs_in_state
+        # self.n_sectors = sectors  # Number of sectors
+        self.vehicles = [Vehicle(self.n_slots) for _ in range(n_vehs)]  # Initialize vehicles
+        self.request = Request(self.n_slots)
+        # self.n_vehs_in_state = n_vehs_in_state
         self.gaps = np.zeros(self.n_vehs)
         self.prev_gaps = np.zeros(self.n_vehs)
+        self.decimal_points = int(math.log10(self.n_slots))
+        self.decision_vehs = [self.vehicles[0], self.vehicles[1]]  # Left and right closest vehicles
+        
         self.reset()
 
     def uniform_init_vehicles(self):
-        # Uniformly initialize the position of vehicles
-        # [0,1)
-        positions = np.linspace(0, 1, self.n_vehs, endpoint=False)
-        for veh, pos in zip(self.vehicles, positions):
-            veh.set_position(pos)
+        # Uniformly initialize vehicles on discrete slots
+        slot_indices = np.linspace(0, self.n_slots, self.n_vehs, endpoint=False, dtype=int)
+        for veh, idx in zip(self.vehicles, slot_indices):
+            veh.set_position(idx / self.n_slots)
 
     def reset(self):
         # Uniformly initialize the position of drivers
         # [0,1)
         self.uniform_init_vehicles()
         # Randomly create a new request
-        self.request = Request()
-        # return self.get_state()
-        return self.get_state_discrete()
+        self.request = Request(self.n_slots)
+        decision_vehs = self.get_decision_vehs()
+
+        return self.get_state_discrete(decision_vehs)
 
     def step(self, action, request_position=None):
-        # action: the closest veh or second closest veh
+        # action: left or right closest vehicle
         # action: 0 or 1
-        # action: 0 -> closest veh
-        # action: 1 -> second closest veh
+        # action-0: left veh
+        # action-1: right veh
 
         if request_position is not None: # For testing
             self.request.position = request_position
 
-        # Calculate the distance between the vehicle and the request
-        for veh in self.vehicles:
-            veh.distance = self.get_distance(veh, self.request)
-        # Get the 2 closest vehicles
-        target_vehs = sorted(self.vehicles, key=lambda x: x.distance)[:2]
+        decision_vehs = self.get_decision_vehs()
+
+        # check if the action is greedy
+        is_greedy = self.check_greedy_action(action, decision_vehs)
 
         # get reward based on the action
-        # reward = -target_vehs[action].distance
-        reward = self.get_reward(action, target_vehs)
+        reward = self.get_reward(action, decision_vehs)
 
         # Update States
         # Remove selected veh and random initialize a new veh
-        self.vehicles.remove(target_vehs[action])
-        self.vehicles.append(Vehicle())
+        self.vehicles.remove(decision_vehs[action])
+        self.vehicles.append(Vehicle(self.n_slots))
 
         # Randomly create a new request
-        self.request = Request()
+        self.request = Request(self.n_slots)
 
-        # return self.get_state(), reward, False  # False: not done
-        return self.get_state_discrete(), reward, False
+        state = self.get_state_discrete(decision_vehs)
+
+        return state, reward, False, is_greedy
     
+    def get_decision_vehs(self):
+        # sort veh with abs pos in ascending order
+        sorted_vehs = sorted(self.vehicles, key=lambda x: x.position)
+        # get the position of vehicles
+        veh_positions = [veh.position for veh in sorted_vehs]
+        # find the index of left and right closest veh
+        right_idx = bisect.bisect_left(veh_positions, self.request.position)
+        if right_idx == len(veh_positions):
+            right_idx = 0
+        left_idx = right_idx - 1
+        if left_idx < 0:
+            left_idx = len(veh_positions) - 1
+
+        decision_vehs = [sorted_vehs[left_idx], sorted_vehs[right_idx]]
+        decision_vehs[0].distance = self.get_distance(decision_vehs[0], self.request)
+        decision_vehs[1].distance = self.get_distance(decision_vehs[1], self.request)
+        return decision_vehs
+    
+    def check_greedy_action(self, action, decision_vehs):
+        # Check if the action is greedy
+        # action: 0 or 1
+        # action: 0: left closest veh, 1: right closest veh
+        if decision_vehs[action].distance <= decision_vehs[1-action].distance:
+            # tie condition checked.
+            return True
+        else:
+            return False
+        
     def get_distance(self, veh, request):
         # Calculate the distance between the vehicle and the request
         distance = min(abs(veh.position - request.position), 1 - abs(veh.position - request.position))
+        # round to self.decimal_points
+        distance = round(distance, self.decimal_points)
         return distance
     
-    def get_reward(self, action, target_vehs):
-        reward = -target_vehs[action].distance
-        
-        reward *= self.n_vehs # scale the reward, mean reward is -0.5
-        reward += 0.5 # make the mean of reward to be 0
+    def get_reward(self, action, decision_vehs):
+        reward = -decision_vehs[action].distance
+        reward *= (2*self.n_vehs) # scale the reward, mean reward is -1
+        reward += 1 # make the mean of reward to be 0
 
         return reward
-        # just base reward
-        veh_distances = [veh.distance for veh in self.vehicles]
-        veh_distances.sort()
-
-        reward = -veh_distances[action]
-        
-        return reward
-
-        # # 基础运输效率奖励（短期激励）
-        # base_reward = 1 / (self.vehicles[action].distance + 1e-6)
-        
-        # # 长期系统平衡奖励（新增）
-        # gap_ratios = self.gaps / np.mean(self.gaps)
-        # balance_reward = np.exp(-np.std(gap_ratios))  # 均匀分布奖励
-        
-        # # 探索引导奖励（新增）
-        # explore_bonus = 0.5 * (1 - self.prev_gaps[action]/np.max(self.prev_gaps))
-        
-        # # 组合奖励（动态权重）
-        # return (0.6 * base_reward + 0.3 * balance_reward + 0.1 * explore_bonus)
-
 
     def get_state(self):
         # compute the interval of vehicles 
@@ -107,27 +120,7 @@ class Simulator:
         state = gaps + [self.request.position]
         return state
     
-    def get_state_discrete(self):
-        # # 将原始位置转换为间隔表示
-        # positions = [v.position for v in self.vehicles]
-        # sorted_pos = np.sort(positions)
-
-        # gaps = []
-
-        # for i in range(len(positions)-1):
-        #     gap = sorted_pos[i+1] - sorted_pos[i]
-        #     gaps.append(gap)
-        # # get last gap
-        # gaps.append(1 - sorted_pos[-1] + sorted_pos[0])
-
-        # # calculate the variance of gaps
-        # gaps_variance = np.var(gaps)
-
-        # gaps.append(gaps_variance)
-
-        # state = gaps
-        
-        # 25 dim large state
+    def get_state_discrete(self, decision_vehs):
         # 1. position of vehicles
         positions = [v.position for v in self.vehicles]
         sorted_pos = np.sort(positions)
@@ -136,24 +129,29 @@ class Simulator:
         gaps = []
         for i in range(len(positions)-1):
             gap = sorted_pos[i+1] - sorted_pos[i]
+            # round to self.decimal_points
+            gap = round(gap, self.decimal_points)
             gaps.append(gap)
 
         # get last gap
-        gaps.append(1 - sorted_pos[-1] + sorted_pos[0])
+        last_gap = 1 - sorted_pos[-1] + sorted_pos[0]
+        last_gap = round(last_gap, self.decimal_points)
+        gaps.append(last_gap)
 
         # calculate the variance and mean of gaps
         gaps_variance = np.var(gaps)
-        gaps_mean = np.mean(gaps)
-
+        
+        # discretize the var and mean of gaps based on self.n_slots
+        gaps_variance = round(gaps_variance, self.decimal_points)
+        # gaps_mean = round(gaps_mean, self.decimal_points)
+        
         # 3. position of request
         req_pos = self.request.position
 
-        # 4. 2 closest vehicles distance to request
-        distances = [self.get_distance(veh, self.request) for veh in self.vehicles]
-        distances.sort()
-        distances = distances[:2]
+        # 4. distance of decision vehicles
+        distances = [veh.distance for veh in decision_vehs]
 
-        state = np.concatenate([sorted_pos, gaps, [req_pos], distances, [gaps_variance, gaps_mean]])
+        state = np.concatenate([sorted_pos, gaps, [req_pos], distances, [gaps_variance]])
     
         return state
        

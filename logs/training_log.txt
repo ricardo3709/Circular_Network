@@ -1,0 +1,9 @@
+Episode: 0, Episode Average Reward: -12786.688000000024, Non-Greedy:46.75%, Loss:17.043086363818528
+Episode: 50, Episode Average Reward: -10046.720000000025, Non-Greedy:45.74%, Loss:31.02218247461319
+Episode: 100, Episode Average Reward: -8924.480000000018, Non-Greedy:47.29%, Loss:32.49798325204849
+Episode: 150, Episode Average Reward: -7833.228000000015, Non-Greedy:46.51%, Loss:37.83740306854248
+Episode: 200, Episode Average Reward: -7828.164000000013, Non-Greedy:44.51%, Loss:36.49768440675736
+Episode: 250, Episode Average Reward: -7991.672000000008, Non-Greedy:43.82%, Loss:35.438005080223085
+Episode: 300, Episode Average Reward: -8432.876000000015, Non-Greedy:46.59%, Loss:40.45728363132477
+Episode: 350, Episode Average Reward: -6936.116000000008, Non-Greedy:44.34%, Loss:45.02276017189026
+Episode: 400, Episode Average Reward: -7772.328000000009, Non-Greedy:42.93%, Loss:44.87596700763702

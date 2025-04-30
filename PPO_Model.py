@@ -322,6 +322,8 @@ class PPO:
                 # Take action in environment
                 next_obs, reward, done = self.sim_env.step(action)
 
+                # print(f"reward: {reward}, action: {action}, done: {done}")
+
                 # Update observation history
                 obs_history.append(obs.copy())
                 next_concatenated_obs = np.concatenate([next_obs] + list(obs_history))
@@ -412,8 +414,8 @@ class PPO:
                 concatenated_obs = next_concatenated_obs
         
         # Calculate average reward and non-greedy percentage
-        avg_reward = total_reward / 10
-        non_greedy_percentage = non_greedy_count / (self.total_its * 10)
+        avg_reward = total_reward / eval_runs
+        non_greedy_percentage = non_greedy_count / (self.total_its * eval_runs)
         
         self.actor.train()  # 恢复训练模式
         self.critic.train()

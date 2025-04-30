@@ -15,12 +15,10 @@ def greedy_policy(state):
 
 def test():
     # HyperParameter for DQN
-    sectors = 4 # Number of sectors of ring
-    n_vehs = 10
-    n_vehs_in_state = n_vehs
+    n_vehs = 30
     batch_size = 64
     # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
-    state_dim = (n_vehs*2+1+4)*4 # 10 vehicels, 10 gaps, 1 request position, gaps mean, gaps variance, 2 closest vehicles distance to request, 4 cat states
+    state_dim = (n_vehs*2+4)*4 # 10 vehicels, 10 gaps, 1 request position, gaps mean, gaps variance, 2 closest vehicles distance to request, 4 cat states
     action_dim = 2 # 0 or 1
     gamma = 0.999
     epsilon = 1.0
@@ -28,16 +26,17 @@ def test():
     epsilon_min = 0.10
     learning_rate = 3e-4
     total_eps = 20001 # Total simulation episodes
-    sim_env = Simulator(n_vehs, sectors, n_vehs_in_state)
+    n_slots = 1000 # Number of slots in the ring, must be 10^n
+    sim_env = Simulator(n_vehs, n_slots)
     total_its = 1000 # Total iterations per episode
-    eval_freq = 100 # Evaluate the model every 100 episodes
+    eval_freq = 50 # Evaluate the model every 100 episodes
     update_freq = 10 # Update the target network every 2 episodes
-    save_freq = 100 # Save the model every 1000 episodes
+    save_freq = 50 # Save the model every 1000 episodes
     replay_buffer = ReplayBuffer(int(1))
 
     # select model to test
-    # model_name = 'DQN'
-    model_name = 'PPO'
+    model_name = 'DQN'
+    # model_name = 'PPO'
 
     if model_name == 'DQN':
         model = Q_Network(batch_size, state_dim, action_dim, gamma, epsilon, epsilon_decay, 
@@ -72,9 +71,9 @@ def test():
     # tot_test_eps = 50
 
     # test all models
-    max_epoch = 13000
-    min_epoch = 10000
-    for epoch in tqdm(range(min_epoch, max_epoch, 100)):
+    max_epoch = 3050
+    min_epoch = 0
+    for epoch in tqdm(range(min_epoch, max_epoch, save_freq)):
         model_name_load = f'Circular_{model_name}_{epoch}'
         model.load(model_name_load)
 
@@ -104,7 +103,11 @@ def test():
         avg_reward_policy = total_reward_policy / tot_test_eps
         avg_reward_greedy = total_reward_greedy / tot_test_eps
         non_greedy = np.mean(percentage_non_greedy_actions_list)
-        improvement = (total_reward_greedy - total_reward_policy) / total_reward_greedy
+
+        if total_reward_greedy > 0 and total_reward_policy > 0:
+            improvement = (total_reward_policy - total_reward_greedy) / total_reward_greedy
+        else:
+            improvement = (total_reward_greedy - total_reward_policy) / total_reward_greedy
         # save the results to a csv file
         with open('logs/test_log.csv', 'a', newline='') as f:
             writer = csv.writer(f)

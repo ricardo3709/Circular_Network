@@ -14,9 +14,7 @@ def greedy_policy(state):
 
 def test():
     # HyperParameter for DQN
-    sectors = 4 # Number of sectors of ring
-    n_vehs = 10
-    n_vehs_in_state = n_vehs
+    n_vehs = 30
     batch_size = 64
     # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
     state_dim = (n_vehs*2+1+4)*4 # 10 vehicels, 10 gaps, 1 request position, gaps mean, gaps variance, 2 closest vehicles distance to request, 4 cat states
@@ -27,11 +25,12 @@ def test():
     epsilon_min = 0.10
     learning_rate = 3e-4
     total_eps = 20001 # Total simulation episodes
-    sim_env = Simulator(n_vehs, sectors, n_vehs_in_state)
+    n_slots = 1000 # Number of slots in the ring, must be 10^n
+    sim_env = Simulator(n_vehs, n_slots)
     total_its = 1000 # Total iterations per episode
-    eval_freq = 100 # Evaluate the model every 100 episodes
+    eval_freq = 50 # Evaluate the model every 100 episodes
     update_freq = 10 # Update the target network every 2 episodes
-    save_freq = 100 # Save the model every 1000 episodes
+    save_freq = 50 # Save the model every 1000 episodes
     replay_buffer = ReplayBuffer(int(1))
 
     model = Q_Network(batch_size, state_dim, action_dim, gamma, epsilon, epsilon_decay, 
@@ -44,7 +43,7 @@ def test():
         writer.writerow(['Epoch', 'Avg_Reward_Policy', 'Avg_Reward_Greedy', 'Avg_Non_Greedy_Actions', 'Improvement'])
     
     # load the model
-    epoch = 5200
+    epoch = 800
     model_name = f'Circular_DQN_{epoch}'
     model.load(model_name)
 
@@ -57,7 +56,7 @@ def test():
 
         
     # Test the model
-    for it in tqdm(range(tot_test_eps)): # test 1000 times, get the average reward
+    for it in tqdm(range(tot_test_eps)): 
         # 1. Generate positions of requests
         req_positions = generate_requests_positions(total_its)
 
@@ -75,7 +74,10 @@ def test():
     avg_reward_policy = total_reward_policy / tot_test_eps
     avg_reward_greedy = total_reward_greedy / tot_test_eps
     non_greedy = np.mean(percentage_non_greedy_actions_list)
-    improvement = (total_reward_greedy - total_reward_policy) / total_reward_greedy
+    if total_reward_greedy > 0 and total_reward_policy > 0:
+        improvement = (total_reward_policy - total_reward_greedy) / total_reward_greedy
+    else:
+        improvement = (total_reward_greedy - total_reward_policy) / total_reward_greedy
     print(f"Avg Reward Policy: {avg_reward_policy:.4f}, Avg Reward Greedy: {avg_reward_greedy:.4f}, Non-Greedy Actions: {non_greedy:%}, Improvement: {improvement:%}")
         
         
