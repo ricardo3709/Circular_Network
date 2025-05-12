@@ -7,15 +7,18 @@ from PPO_Model import PPO
 import torch
 from tqdm import tqdm
 
-def greedy_policy(state):
+def greedy_policy(decision_vehs):
     # Greedy policy
     # Select the vehicle with the minimum distance
-    action = 0
+    if decision_vehs[0].distance < decision_vehs[1].distance:
+        action = 0
+    else:
+        action = 1
     return action
 
 def test():
     # HyperParameter for DQN
-    n_vehs = 30
+    n_vehs = 50
     batch_size = 64
     # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
     state_dim = (n_vehs*2+4)*4 # 10 vehicels, 10 gaps, 1 request position, gaps mean, gaps variance, 2 closest vehicles distance to request, 4 cat states
@@ -71,7 +74,7 @@ def test():
     # tot_test_eps = 50
 
     # test all models
-    max_epoch = 3050
+    max_epoch = 3650
     min_epoch = 0
     for epoch in tqdm(range(min_epoch, max_epoch, save_freq)):
         model_name_load = f'Circular_{model_name}_{epoch}'

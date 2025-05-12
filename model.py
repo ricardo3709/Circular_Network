@@ -270,7 +270,7 @@ class Q_Network(nn.Module):
         for it in range(self.tot_its):
             # 选择动作
             if policy is not None:
-                action = policy(concatenated_state)
+                action = policy(self.sim_env.decision_vehs)
             else:
                 with torch.no_grad():
                     q_values = self.policy_net(concatenated_state)
@@ -285,9 +285,11 @@ class Q_Network(nn.Module):
             state_history.append(state.copy())
             
             # 更新当前状态
+            next_concatenated_state = np.concatenate([state] + list(state_history))
+            next_concatenated_state = torch.tensor(next_concatenated_state, dtype=torch.float32)
+
             state = next_state
-            concatenated_state = np.concatenate([state] + list(state_history))
-            concatenated_state = torch.tensor(concatenated_state, dtype=torch.float32)
+            concatenated_state = next_concatenated_state
             
             total_reward += reward
 
