@@ -107,6 +107,9 @@ def test():
         avg_reward_greedy = total_reward_greedy / tot_test_eps
         non_greedy = np.mean(percentage_non_greedy_actions_list)
 
+        print("Epoch: ", epoch)
+        print("Policy reward: ", total_reward_policy)
+        print("Greedy reward: ", total_reward_greedy)
         if total_reward_greedy > 0 and total_reward_policy > 0:
             improvement = (total_reward_policy - total_reward_greedy) / total_reward_greedy
         else:

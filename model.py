@@ -269,16 +269,18 @@ class Q_Network(nn.Module):
 
         for it in range(self.tot_its):
             # 选择动作
-            if policy is not None:
-                action = policy(self.sim_env.decision_vehs)
-            else:
+            if policy is None: # policy is None means model policy
                 with torch.no_grad():
                     q_values = self.policy_net(concatenated_state)
                     action = q_values.argmax().item()
+            else: # policy is not None means greedy policy
+                action = 0 # dummy action, real action is decided in the step of simulator
 
             # 使用预定义的请求位置执行动作
             req_position = req_list[it]
-            next_state, reward, done, is_greedy = self.sim_env.step(action, req_position)
+
+            # greedy policy need to act based on the updated state
+            next_state, reward, done, is_greedy = self.sim_env.step(action, req_position, policy)
             if not is_greedy:
                 total_action += 1
             # 更新历史状态

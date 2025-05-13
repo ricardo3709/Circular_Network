@@ -37,7 +37,7 @@ class Simulator:
 
         return self.get_state_discrete(decision_vehs)
 
-    def step(self, action, request_position=None):
+    def step(self, action, request_position=None, policy=None):
         # action: left or right closest vehicle
         # action: 0 or 1
         # action-0: left veh
@@ -47,6 +47,12 @@ class Simulator:
             self.request.position = request_position
 
         decision_vehs = self.get_decision_vehs()
+
+        # use greedy policy to decide the action
+        if policy is not None: # policy is not None means greedy policy
+            action = policy(decision_vehs)
+        else: # policy is None means model policy
+            action = action
 
         # check if the action is greedy
         is_greedy = self.check_greedy_action(action, decision_vehs)
