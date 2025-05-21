@@ -22,7 +22,7 @@ def main():
 
     # HyperParameter for DQN
     sectors = 4 # Number of sectors of ring
-    n_vehs = 50
+    n_vehs = 10
     n_vehs_in_state = n_vehs
     batch_size = 64
     # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
@@ -40,7 +40,7 @@ def main():
     update_freq = 10 # Update the target network every 2 episodes
     save_freq = 100 # Save the model every 1000 episodes
 
-    replay_buffer = ReplayBuffer(int(2e7))
+    replay_buffer = ReplayBuffer(int(1e7))
     # replay_buffer = ReplayBuffer(1000)
 
     # DQN Model

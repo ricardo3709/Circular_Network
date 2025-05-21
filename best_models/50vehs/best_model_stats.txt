@@ -1,0 +1,6 @@
+Epoch: 2100, Improvement: 0.665885%
+Epoch: 3200, Improvement: 0.596633%
+Epoch: 600, Improvement: 0.575325%
+Epoch: 5400, Improvement: 0.287662%
+Epoch: 400, Improvement: 0.101215%
+Epoch: 3800, Improvement: 0.037290%

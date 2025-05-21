@@ -1,1 +1,0 @@
-Epoch: 1100, Improvement: 0.160276%

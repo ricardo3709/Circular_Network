@@ -15,7 +15,7 @@ def greedy_policy(state):
 def test():
     # HyperParameter for DQN
     sectors = 4 # Number of sectors of ring
-    n_vehs = 3
+    n_vehs = 10
     n_vehs_in_state = n_vehs
     batch_size = 64
     # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
@@ -56,7 +56,7 @@ def test():
     # tot_test_eps = 50
 
     # test all models
-    max_epoch = 5400
+    max_epoch = 7800
     for epoch in tqdm(range(0, max_epoch, 100)):
         model_name = f'Circular_DQN_{epoch}'
         model.load(model_name)

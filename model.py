@@ -117,8 +117,8 @@ class Q_Network(nn.Module):
 
             # for it in tqdm(range(self.tot_its)):
             for it in range(self.tot_its):
-                if it%100 == 0:
-                    print(f'Iteration: {it}')
+                # if it%100 == 0:
+                #     print(f'Iteration: {it}')
                 # 选择动作
                 if np.random.rand() < self.epsilon:
                     action = np.random.randint(0, 2)
@@ -156,10 +156,10 @@ class Q_Network(nn.Module):
                     batch = self.replay_buffer.sample(self.batch_size)
                     states, actions, rewards, next_states, dones = zip(*batch)
 
-                    states = torch.tensor(states, dtype=torch.float32)
+                    states = torch.tensor(np.array(states), dtype=torch.float32)
                     actions = torch.tensor(actions, dtype=torch.int64)
                     rewards = torch.tensor(rewards, dtype=torch.float32)
-                    next_states = torch.tensor(next_states, dtype=torch.float32)
+                    next_states = torch.tensor(np.array(next_states), dtype=torch.float32)
                     dones = torch.tensor(dones, dtype=torch.float32)
 
                     # 当前Q值

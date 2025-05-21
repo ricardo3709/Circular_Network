@@ -1,8 +1,6 @@
-Epoch: 5200, Improvement: 1.827725%
-Epoch: 3400, Improvement: 0.756085%
-Epoch: 11300, Improvement: 0.646734%
-Epoch: 2100, Improvement: 0.593620%
-Epoch: 1000, Improvement: 0.507701%
-Epoch: 1900, Improvement: 0.460837%
-Epoch: 1500, Improvement: 0.453026%
-Epoch: 1300, Improvement: 0.253070%
+Epoch: 4000, Improvement: 1.893336%, Non-Greedy Actions: 4.200000%
+Epoch: 2800, Improvement: 0.912300%, Non-Greedy Actions: 2.300000%
+Epoch: 2700, Improvement: 0.820133%, Non-Greedy Actions: 1.500000%
+Epoch: 3000, Improvement: 0.374918%, Non-Greedy Actions: 1.600000%
+Epoch: 3200, Improvement: 0.282751%, Non-Greedy Actions: 2.800000%
+Epoch: 1200, Improvement: 0.021870%, Non-Greedy Actions: 4.300000%

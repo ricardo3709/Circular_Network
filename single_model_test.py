@@ -15,7 +15,7 @@ def greedy_policy(state):
 def test():
     # HyperParameter for DQN
     sectors = 4 # Number of sectors of ring
-    n_vehs = 10
+    n_vehs = 50
     n_vehs_in_state = n_vehs
     batch_size = 64
     # state_dim = sectors + n_vehs_in_state + 2 + 1 # 4 sectors + 10 vehicles + mean and std of vehicles + request position
@@ -38,13 +38,8 @@ def test():
                       epsilon_min, learning_rate, total_eps, sim_env, total_its, 
                       replay_buffer, eval_freq, update_freq, save_freq)
     
-    # write the header to the csv file
-    with open('logs/test_log.csv', 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(['Epoch', 'Avg_Reward_Policy', 'Avg_Reward_Greedy', 'Avg_Non_Greedy_Actions', 'Improvement'])
-    
     # load the model
-    epoch = 5200
+    epoch = 1500
     model_name = f'Circular_DQN_{epoch}'
     model.load(model_name)
 
