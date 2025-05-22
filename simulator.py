@@ -104,26 +104,6 @@ class Simulator:
         return state
     
     def get_state_discrete(self):
-        # # 将原始位置转换为间隔表示
-        # positions = [v.position for v in self.vehicles]
-        # sorted_pos = np.sort(positions)
-
-        # gaps = []
-
-        # for i in range(len(positions)-1):
-        #     gap = sorted_pos[i+1] - sorted_pos[i]
-        #     gaps.append(gap)
-        # # get last gap
-        # gaps.append(1 - sorted_pos[-1] + sorted_pos[0])
-
-        # # calculate the variance of gaps
-        # gaps_variance = np.var(gaps)
-
-        # gaps.append(gaps_variance)
-
-        # state = gaps
-        
-        # 25 dim large state
         # 1. position of vehicles
         positions = [v.position for v in self.vehicles]
         sorted_pos = np.sort(positions)

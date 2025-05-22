@@ -74,13 +74,13 @@ def test():
             req_positions = generate_requests_positions(total_its)
 
             # 2. Test with the policy
-            reward_policy, percentage_non_greedy_actions = model.test(req_positions)
+            reward_policy, percentage_non_greedy_actions, _, _ = model.test(req_positions)
             total_reward_policy += reward_policy
             percentage_non_greedy_actions_list.append(percentage_non_greedy_actions)
             sim_env.reset()
 
             # 3. Test with the greedy policy with same requests
-            reward_greedy, _ = model.test(req_positions, greedy_policy)
+            reward_greedy, _, _, _ = model.test(req_positions, greedy_policy)
             total_reward_greedy += reward_greedy
             sim_env.reset()
 

@@ -8,16 +8,32 @@ class ReplayBuffer:
         """
         标准回放缓冲区，适用于单进程环境
         """
-        self.buffer = deque(maxlen=capacity)
+        self.capacity = capacity
+        self.buffer = [None] * capacity
+        self.pos = 0
+        self.size = 0
 
+    # def push(self, state, action, reward, next_state, done):
+    #     self.buffer.append((state, action, reward, next_state, done))
+    
     def push(self, state, action, reward, next_state, done):
-        self.buffer.append((state, action, reward, next_state, done))
+        self.buffer[self.pos] = (state, action, reward, next_state, done)
+        self.pos = (self.pos + 1) % self.capacity
+        self.size = min(self.size + 1, self.capacity)
 
-    def sample(self, batch_size):
-        return random.sample(self.buffer, batch_size)
+    # def sample(self, batch_size):
+    #     return random.sample(self.buffer, batch_size)
+    
+    def sample(self, batch_size: int):
+        n = self.size
+        batch_size = min(batch_size, n)
+        idx = np.random.randint(0, n, size=batch_size)
+        batch = [self.buffer[i] for i in idx]
+        states, actions, rewards, next_states, dones = zip(*batch)
+        return np.array(states), np.array(actions), np.array(rewards), np.array(next_states), np.array(dones)
 
     def __len__(self):
-        return len(self.buffer)
+        return self.size
 
 
 class SharedReplayBuffer:

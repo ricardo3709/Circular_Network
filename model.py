@@ -251,11 +251,14 @@ class Q_Network(nn.Module):
 
     def test(self, req_list, policy=None):
         # 设置随机种子
-        np.random.seed(0)
-        torch.manual_seed(0)
+        # np.random.seed(0)
+        # torch.manual_seed(0)
 
         # 初始化环境
         state = self.sim_env.reset()
+
+        var_gaps_series = []
+        reward_series = []
         
         # 创建历史状态缓冲区，初始化为当前状态的复制
         state_history = deque(maxlen=3)
@@ -270,6 +273,9 @@ class Q_Network(nn.Module):
         total_action = 0
 
         for it in range(self.tot_its):
+            var_gaps = state[-2]
+            var_gaps_series.append(var_gaps)
+
             # 选择动作
             if policy is not None:
                 action = policy(concatenated_state)
@@ -292,10 +298,11 @@ class Q_Network(nn.Module):
             concatenated_state = torch.tensor(concatenated_state, dtype=torch.float32)
             
             total_reward += reward
+            reward_series.append(reward)
 
         percentage_of_non_greedy_actions = total_action / self.tot_its
 
-        return total_reward, percentage_of_non_greedy_actions
+        return total_reward, percentage_of_non_greedy_actions, var_gaps_series, reward_series
                     
     # def train(self):
     #     for ep in range(int(self.total_eps)):
@@ -444,3 +451,7 @@ class Q_Network(nn.Module):
     def load(self, file_name):
         self.policy_net.load_state_dict(torch.load('saved_models/' + file_name+'_policy', weights_only=True))
         self.target_net.load_state_dict(torch.load('saved_models/' + file_name+'_target', weights_only=True))
+
+    def load_test_model(self, file_name):
+        self.policy_net.load_state_dict(torch.load('best_models/' + file_name+'_policy', weights_only=True))
+        self.target_net.load_state_dict(torch.load('best_models/' + file_name+'_target', weights_only=True))
