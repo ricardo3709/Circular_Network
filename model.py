@@ -141,8 +141,7 @@ class Q_Network(nn.Module):
                 
 
                 if len(self.replay_buffer) > self.batch_size:
-                    batch = self.replay_buffer.sample(self.batch_size)
-                    states, actions, rewards, next_states, dones = zip(*batch)
+                    states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
 
                     states = torch.tensor(states, dtype=torch.float32)
                     actions = torch.tensor(actions, dtype=torch.int64)
@@ -248,9 +247,9 @@ class Q_Network(nn.Module):
         return avg_reward, percentage_of_non_greedy_actions
 
     def test(self, req_list, policy=None):
-        # 设置随机种子
-        np.random.seed(0)
-        torch.manual_seed(0)
+        # # 设置随机种子
+        # np.random.seed(0)
+        # torch.manual_seed(0)
 
         # 初始化环境
         state = self.sim_env.reset()

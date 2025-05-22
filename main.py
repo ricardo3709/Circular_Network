@@ -25,7 +25,6 @@ def main():
     # HyperParameter for DQN
     n_vehs = 50
     batch_size = 64
-    state_dim = (n_vehs*2+4)*4 # 10 vehicels, 10 gaps, 1 request position, gaps mean, gaps variance, 2 closest vehicles distance to request, 4 cat states
     action_dim = 2 # 0 or 1
     gamma = 0.999
     epsilon = 1.0
@@ -34,19 +33,20 @@ def main():
     learning_rate = 1e-3
     total_eps = 20001 # Total simulation episodes
     n_slots = 1000 # Number of slots in the ring, must be 10^n
-    sim_env = Simulator(n_vehs, n_slots)
+    N_LR_vehs = 4
+    sim_env = Simulator(n_vehs, n_slots, N_LR_vehs)
     total_its = 2000 # Total iterations per episode
     eval_freq = 50 # Evaluate the model every 100 episodes
     update_freq = 10 # Update the target network every 2 episodes
     save_freq = 50 # Save the model every 1000 episodes
 
-    replay_buffer = ReplayBuffer(int(2e7))
-    # replay_buffer = ReplayBuffer(1000)
+    state_dim = (N_LR_vehs*2*2+1+1)*4 # 4 cat states
+    replay_buffer = ReplayBuffer(int(1e7))
 
-    # torch random seed
-    seed = 3407
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    # # torch random seed
+    # seed = 3407
+    # torch.manual_seed(seed)
+    # np.random.seed(seed)
 
     # DQN Model
     model = Q_Network(batch_size, state_dim, action_dim, gamma, epsilon, epsilon_decay, 

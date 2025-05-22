@@ -7,7 +7,7 @@ import math
 import bisect
 
 class Simulator:
-    def __init__(self, n_vehs, n_slots):
+    def __init__(self, n_vehs, n_slots, N_LR_vehs):
         self.n_slots = n_slots
         self.n_vehs = n_vehs  # Number of Vehs
         # self.n_sectors = sectors  # Number of sectors
@@ -18,7 +18,8 @@ class Simulator:
         self.prev_gaps = np.zeros(self.n_vehs)
         self.decimal_points = int(math.log10(self.n_slots))
         self.decision_vehs = [self.vehicles[0], self.vehicles[1]]  # Left and right closest vehicles
-        
+        self.N_LR_vehs = N_LR_vehs
+
         self.reset()
 
     def uniform_init_vehicles(self):
@@ -33,9 +34,9 @@ class Simulator:
         self.uniform_init_vehicles()
         # Randomly create a new request
         self.request = Request(self.n_slots)
-        decision_vehs = self.get_decision_vehs()
+        # decision_vehs = self.get_decision_vehs()
 
-        return self.get_state_discrete(decision_vehs)
+        return self.get_state_discrete()
 
     def step(self, action, request_position=None, policy=None):
         # action: left or right closest vehicle
@@ -68,7 +69,8 @@ class Simulator:
         # Randomly create a new request
         self.request = Request(self.n_slots)
 
-        state = self.get_state_discrete(decision_vehs)
+        # state = self.get_state_discrete(decision_vehs)
+        state = self.get_state_discrete()
 
         return state, reward, False, is_greedy
     
@@ -88,6 +90,35 @@ class Simulator:
         decision_vehs = [sorted_vehs[left_idx], sorted_vehs[right_idx]]
         decision_vehs[0].distance = self.get_distance(decision_vehs[0], self.request)
         decision_vehs[1].distance = self.get_distance(decision_vehs[1], self.request)
+        return decision_vehs
+    
+    def get_N_LR_vehs(self):
+        decision_vehs = []
+        # sort veh with abs pos in ascending order
+        sorted_vehs = sorted(self.vehicles, key=lambda x: x.position)
+        # get the position of vehicles
+        veh_positions = [veh.position for veh in sorted_vehs]
+        # find the index of left and right closest veh
+        right_idx = bisect.bisect_left(veh_positions, self.request.position)
+        if right_idx == len(veh_positions):
+            right_idx = 0
+        left_idx = right_idx - 1
+        if left_idx < 0:
+            left_idx = len(veh_positions) - 1
+
+        for i in range(self.N_LR_vehs):
+            decision_vehs.append(sorted_vehs[left_idx])
+            decision_vehs.append(sorted_vehs[right_idx])
+            left_idx = left_idx - 1
+            right_idx = right_idx + 1
+            if left_idx < 0:
+                left_idx = len(veh_positions) - 1
+            if right_idx >= len(veh_positions):
+                right_idx = 0
+        
+        for veh in decision_vehs:
+            veh.distance = self.get_distance(veh, self.request)
+
         return decision_vehs
     
     def check_greedy_action(self, action, decision_vehs):
@@ -126,21 +157,27 @@ class Simulator:
         state = gaps + [self.request.position]
         return state
     
-    def get_state_discrete(self, decision_vehs):
-        # 1. position of vehicles
-        positions = [v.position for v in self.vehicles]
-        sorted_pos = np.sort(positions)
+    def get_state_discrete(self):
+        # 1. position of vehicles, N left and N right
+        decision_vehs = self.get_N_LR_vehs()
+        decision_positions = [v.position for v in decision_vehs]
+
+        all_positions = []
+        for veh in self.vehicles:
+            all_positions.append(veh.position)
+        all_positions.sort()
 
         # 2. gaps between vehicles
         gaps = []
-        for i in range(len(positions)-1):
-            gap = sorted_pos[i+1] - sorted_pos[i]
+
+        for i in range(len(all_positions)-1):
+            gap = all_positions[i+1] - all_positions[i]
             # round to self.decimal_points
             gap = round(gap, self.decimal_points)
             gaps.append(gap)
 
         # get last gap
-        last_gap = 1 - sorted_pos[-1] + sorted_pos[0]
+        last_gap = 1 - all_positions[-1] + all_positions[0]
         last_gap = round(last_gap, self.decimal_points)
         gaps.append(last_gap)
 
@@ -149,15 +186,14 @@ class Simulator:
         
         # discretize the var and mean of gaps based on self.n_slots
         gaps_variance = round(gaps_variance, self.decimal_points)
-        # gaps_mean = round(gaps_mean, self.decimal_points)
         
         # 3. position of request
         req_pos = self.request.position
 
         # 4. distance of decision vehicles
-        distances = [veh.distance for veh in decision_vehs]
+        decision_distances = [veh.distance for veh in decision_vehs]
 
-        state = np.concatenate([sorted_pos, gaps, [req_pos], distances, [gaps_variance]])
+        state = np.concatenate([decision_positions, decision_distances, [req_pos], [gaps_variance]])
     
         return state
        
